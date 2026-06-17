@@ -13,7 +13,7 @@ struct ContentView: View {
             
             // 待办事项页面
             NavigationView {
-                TodoView()
+                TodoView(showingAddTodo: .constant(false))
             }
             .tag(1)
         }

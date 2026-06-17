@@ -45,10 +45,14 @@ enum TodoDayPeriod: Int, CaseIterable, Identifiable {
 // MARK: - 主程序
 struct TodoView: View {
     
+    @Binding var showingAddTodo: Bool
     @StateObject private var viewModel = TodoViewModel()     // 界面数据与逻辑模型
     @State private var showCompleted = false  // 未完成/已完成 UI状态
     @State private var detailNavigationTodo: TodoItem?  // 要进入哪个待办详情
-    @State private var showingAddTodo = false
+
+    init(showingAddTodo: Binding<Bool> = .constant(false)) {
+        _showingAddTodo = showingAddTodo
+    }
 
     private func setShowingAddTodo(_ show: Bool) {
         withAnimation(.spring(response: 0.42, dampingFraction: 0.88)) {
@@ -76,9 +80,8 @@ struct TodoView: View {
     private func todoCardContainer(width: CGFloat) -> some View {
         let cardWidth = cardSize(for: width)
         let cardHeight = cardHeight(for: width)
-        
-        return ZStack(alignment: .topLeading) {
-            // 卡片内容 - 支持滑动切换动画
+
+        return VStack(spacing: 8) {
             Group {
                 if showCompleted {
                     completedTodosCard(width: cardWidth, height: cardHeight)
@@ -86,14 +89,15 @@ struct TodoView: View {
                     activeTodosCard(width: cardWidth, height: cardHeight)
                 }
             }
-            // 左下角：未完成 / 已完成列表切换（勾图标）
-            trashIconButton
-            // 右下角：新建待办
-            addTodoButton
+
+            HStack {
+                Spacer(minLength: 0)
+                completedListToggleButton
+            }
         }
         .padding(.horizontal, 20)
         .padding(.bottom, 100)
-        .frame(width: max(0, width), height: cardHeight)
+        .frame(width: max(0, width))
     }
     
     // 完成事项卡片
@@ -109,9 +113,7 @@ struct TodoView: View {
             .padding(.top, 8)
         }
         .frame(width: width, height: height)
-        .background(Color.white)
-        .cornerRadius(16)
-        .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 2)
+        .todoPanelCardChrome()
         .transition(.asymmetric(
             insertion: .move(edge: .trailing).combined(with: .opacity),
             removal: .move(edge: .leading).combined(with: .opacity)
@@ -131,9 +133,7 @@ struct TodoView: View {
             .padding(.top, 8)
         }
         .frame(width: width, height: height)
-        .background(Color.white)
-        .cornerRadius(16)
-        .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 2)
+        .todoPanelCardChrome()
         .transition(.asymmetric(
             insertion: .move(edge: .leading).combined(with: .opacity),
             removal: .move(edge: .trailing).combined(with: .opacity)
@@ -182,37 +182,25 @@ struct TodoView: View {
         .environment(\.defaultMinListRowHeight, 1)
     }
     
-    // 左下角切换：勾图标（未完成 ↔ 已完成）
-    private var trashIconButton: some View {
+    // 待办卡片下方：未完成 / 已完成列表切换
+    private var completedListToggleButton: some View {
         Button(action: {
             withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
                 showCompleted.toggle()
             }
         }) {
-            Image(systemName: "checkmark")
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundColor(Color(hex: "#081c15"))
-                .frame(width: 40, height: 40)
-                .background(Color.white.opacity(0.9))
-                .clipShape(Circle())
-                .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
+            VStack(spacing: 6) {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 26, weight: .semibold))
+                Text("今日完成")
+                    .font(.system(size: 13, weight: .medium))
+            }
+            .foregroundColor(Color(hex: "#081c15"))
+            .frame(width: 100, height: 100)
+            .todoPanelCardChrome()
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-    }
-
-    private var addTodoButton: some View {
-        Button(action: { setShowingAddTodo(true) }) {
-            Image(systemName: "plus")
-                .font(.system(size: 22, weight: .semibold))
-                .foregroundColor(Color(hex: "#081c15"))
-                .frame(width: 40, height: 40)
-                .background(Color.white.opacity(0.9))
-                .clipShape(Circle())
-                .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+        .buttonStyle(.plain)
+        .accessibilityLabel(showCompleted ? "查看未完成，今日完成" : "查看今日完成")
     }
     
     var body: some View {
@@ -277,7 +265,15 @@ struct TodoView: View {
                         )
                         .accessibilityHidden(!showingAddTodo)
                         .frame(maxWidth: .infinity, maxHeight: addTodoPanelMaxHeight(screenHeight: geometry.size.height))
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .clipShape(
+                            UnevenRoundedRectangle(
+                                topLeadingRadius: 20,
+                                bottomLeadingRadius: 16,
+                                bottomTrailingRadius: 16,
+                                topTrailingRadius: 20,
+                                style: .continuous
+                            )
+                        )
                         .shadow(color: Color.black.opacity(showingAddTodo ? 0.12 : 0), radius: 12, y: -4)
                         .padding(.bottom, 6)
                         .offset(y: showingAddTodo ? 0 : geometry.size.height)
@@ -307,6 +303,28 @@ private enum TodoLightBandConstants {
     static let defaultIdleFrameTimeInPeriod: TimeInterval = 2.2
     static var defaultIdleFramePhaseRadians: Double {
         (defaultIdleFrameTimeInPeriod / rotationPeriod) * 2 * Double.pi
+    }
+}
+
+// MARK: - 待办大卡片统一外观（列表容器、「今日完成」等；无描边，仅白底 + 圆角 + 阴影）
+private enum TodoPanelCardChrome {
+    static let cornerRadius: CGFloat = 16
+    static let background = Color.white
+    static let shadowColor = Color.black.opacity(0.1)
+    static let shadowRadius: CGFloat = 8
+    static let shadowY: CGFloat = 2
+}
+
+private extension View {
+    func todoPanelCardChrome(cornerRadius: CGFloat = TodoPanelCardChrome.cornerRadius) -> some View {
+        background(TodoPanelCardChrome.background)
+            .cornerRadius(cornerRadius)
+            .shadow(
+                color: TodoPanelCardChrome.shadowColor,
+                radius: TodoPanelCardChrome.shadowRadius,
+                x: 0,
+                y: TodoPanelCardChrome.shadowY
+            )
     }
 }
 
@@ -939,6 +957,16 @@ extension TodoItem {
     }
 }
 
+private func applyAddTodoTitleTextFieldPlaceholder(_ tf: UITextField, text: String) {
+    tf.attributedPlaceholder = NSAttributedString(
+        string: text,
+        attributes: [
+            .foregroundColor: UIColor.placeholderText,
+            .font: AddTodoSheetStyle.fieldUIFont
+        ]
+    )
+}
+
 /// 标题用 `UITextField`；`wantsKeyboard == true` 时在已入窗的视图上立刻要第一响应者，与外层面板位移动画并行。
 private struct AddTodoTitleTextField: UIViewRepresentable {
     @Binding var text: String
@@ -952,8 +980,8 @@ private struct AddTodoTitleTextField: UIViewRepresentable {
 
     func makeUIView(context: Context) -> UITextField {
         let tf = UITextField()
-        tf.placeholder = placeholder
-        tf.font = UIFont.preferredFont(forTextStyle: .subheadline)
+        applyAddTodoTitleTextFieldPlaceholder(tf, text: placeholder)
+        tf.font = AddTodoSheetStyle.fieldUIFont
         tf.textColor = UIColor.label
         tf.returnKeyType = .default
         tf.delegate = context.coordinator
@@ -966,17 +994,17 @@ private struct AddTodoTitleTextField: UIViewRepresentable {
     func updateUIView(_ uiView: UITextField, context: Context) {
         context.coordinator.parent = self
         applyAddTodoTitleTextFieldDebugChrome(uiView)
+        uiView.font = AddTodoSheetStyle.fieldUIFont
+        applyAddTodoTitleTextFieldPlaceholder(uiView, text: placeholder)
         if !wantsKeyboard {
             context.coordinator.didApplyInitialFocus = false
             uiView.resignFirstResponder()
             if uiView.text != text { uiView.text = text }
-            uiView.placeholder = placeholder
             return
         }
         if uiView.text != text {
             uiView.text = text
         }
-        uiView.placeholder = placeholder
         guard uiView.window != nil else { return }
         if !context.coordinator.didApplyInitialFocus {
             if uiView.becomeFirstResponder() {
@@ -1008,18 +1036,55 @@ private struct AddTodoTitleTextField: UIViewRepresentable {
 private struct TodoTaskCategory: Identifiable, Hashable {
     let id: Int
     let name: String
+    let icon: String
 }
 
 private enum TodoTaskCategoryCatalog {
     static let all: [TodoTaskCategory] = [
-        TodoTaskCategory(id: 1, name: "工作"),
-        TodoTaskCategory(id: 2, name: "学习"),
-        TodoTaskCategory(id: 3, name: "生活"),
-        TodoTaskCategory(id: 4, name: "健康"),
-        TodoTaskCategory(id: 5, name: "财务"),
-        TodoTaskCategory(id: 6, name: "社交"),
-        TodoTaskCategory(id: 7, name: "其他")
+        TodoTaskCategory(id: 1, name: "工作", icon: "briefcase"),
+        TodoTaskCategory(id: 2, name: "学习", icon: "book"),
+        TodoTaskCategory(id: 3, name: "生活", icon: "house"),
+        TodoTaskCategory(id: 4, name: "健康", icon: "heart"),
+        TodoTaskCategory(id: 5, name: "财务", icon: "yensign.circle"),
+        TodoTaskCategory(id: 6, name: "社交", icon: "person.2"),
+        TodoTaskCategory(id: 7, name: "其他", icon: "ellipsis.circle")
     ]
+}
+
+private enum AddTodoFormMode: String, CaseIterable, Identifiable {
+    case task
+    case list
+    case voice
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .task: return "待办"
+        case .list: return "清单"
+        case .voice: return "语音"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .task: return "doc.text"
+        case .list: return "list.bullet"
+        case .voice: return "mic.fill"
+        }
+    }
+}
+
+private enum AddTodoSheetStyle {
+    static let accent = Color(hex: "#1b4332")
+    static let accentAction = Color(hex: "#2d6a4f")
+    static let accentFill = Color(hex: "#d8f3dc")
+    static let fieldBorder = Color(hex: "#C8D5CC")
+    static let fieldFont = Font.body
+    static let fieldUIFont = UIFont.preferredFont(forTextStyle: .body)
+    static let fieldHorizontalPadding: CGFloat = 14
+    static let fieldVerticalPadding: CGFloat = 12
+    static let fieldContentMinHeight: CGFloat = 22
 }
 
 // MARK: - 新建待办（自定义底部面板）
@@ -1029,6 +1094,7 @@ private struct AddTodoSheet: View {
     @ObservedObject var viewModel: TodoViewModel
     var panelExpanded: Bool
     let onDismiss: () -> Void
+    @State private var formMode: AddTodoFormMode = .task
     @State private var selectedCategoryId: Int = TodoTaskCategoryCatalog.all[0].id
     @State private var titleText = ""
     @State private var descriptionText = ""
@@ -1039,6 +1105,11 @@ private struct AddTodoSheet: View {
     @State private var showsEndTime = false
     @State private var showsDuration = false
     @State private var expandedTimeField: TimeField?
+    @State private var draftStartTime: Date
+    @State private var draftEndTime: Date
+    @State private var draftDurationHours: Int = 1
+    @State private var draftDurationMinutes: Int = 0
+    @State private var allowTitleKeyboard = true
     @FocusState private var isNotesFieldFocused: Bool
 
     private static let timeHMFormatter: DateFormatter = {
@@ -1054,6 +1125,9 @@ private struct AddTodoSheet: View {
         self.onDismiss = onDismiss
         _startTime = State(initialValue: Self.defaultStartTime())
         _endTime = State(initialValue: Self.defaultStartTime())
+        let start = Self.defaultStartTime()
+        _draftStartTime = State(initialValue: start)
+        _draftEndTime = State(initialValue: start)
     }
 
     private static func defaultStartTime() -> Date {
@@ -1084,6 +1158,142 @@ private struct AddTodoSheet: View {
         showsDuration = false
         expandedTimeField = nil
         selectedCategoryId = TodoTaskCategoryCatalog.all[0].id
+        formMode = .task
+        titleText = ""
+        descriptionText = ""
+        allowTitleKeyboard = true
+    }
+
+    private func dismissAllInputs() {
+        isNotesFieldFocused = false
+        expandedTimeField = nil
+        allowTitleKeyboard = false
+        UIApplication.shared.sendAction(
+            #selector(UIResponder.resignFirstResponder),
+            to: nil,
+            from: nil,
+            for: nil
+        )
+    }
+
+    private func submitTodo() {
+        let t = titleText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let d = descriptionText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cal = Calendar.current
+        let resolvedEnd: Date
+        if showsEndTime {
+            resolvedEnd = Self.endDateIfNotAfterStart(start: startTime, end: endTime)
+        } else if showsDuration {
+            resolvedEnd = Calendar.current.date(
+                byAdding: .minute,
+                value: max(1, totalDurationMinutes),
+                to: startTime
+            ) ?? startTime
+        } else {
+            resolvedEnd = Self.endDateIfNotAfterStart(start: startTime, end: endTime)
+        }
+        let sh = cal.component(.hour, from: startTime)
+        let sm = cal.component(.minute, from: startTime)
+        let eh = cal.component(.hour, from: resolvedEnd)
+        let em = cal.component(.minute, from: resolvedEnd)
+        viewModel.addTodo(
+            title: t.isEmpty ? "未命名待办" : t,
+            description: d.isEmpty ? nil : d,
+            timeSlotStartHour: sh,
+            timeSlotStartMinute: sm,
+            timeSlotEndHour: eh,
+            timeSlotEndMinute: em
+        )
+        titleText = ""
+        descriptionText = ""
+        dismissAllInputs()
+        onDismiss()
+    }
+
+    private var sheetDragHandle: some View {
+        Capsule()
+            .fill(Color(hex: "#C7C7CC"))
+            .frame(width: 36, height: 4)
+            .padding(.top, 8)
+            .frame(maxWidth: .infinity)
+    }
+
+    @ViewBuilder
+    private var modeSelectorBar: some View {
+        HStack(spacing: 8) {
+            ForEach(AddTodoFormMode.allCases) { mode in
+                let isSelected = formMode == mode
+                Button {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        formMode = mode
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: mode.icon)
+                            .font(.caption.weight(.semibold))
+                        Text(mode.title)
+                            .font(.subheadline.weight(.semibold))
+                        if mode == .voice {
+                            Image(systemName: "crown.fill")
+                                .font(.caption2)
+                                .foregroundStyle(Color(hex: "#F5B301"))
+                        }
+                    }
+                    .foregroundStyle(isSelected ? Color.white : AddTodoSheetStyle.accent)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 9)
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(isSelected ? AddTodoSheetStyle.accentAction : Color.clear)
+                    )
+                    .overlay(
+                        Capsule(style: .continuous)
+                            .stroke(AddTodoSheetStyle.accentAction, lineWidth: isSelected ? 0 : 1)
+                    )
+                }
+                .buttonStyle(.plain)
+                .disabled(mode != .task)
+                .opacity(mode == .task ? 1 : 0.45)
+            }
+        }
+    }
+
+    private var addTodoInputFieldChrome: some View {
+        RoundedRectangle(cornerRadius: 12, style: .continuous)
+            .stroke(AddTodoSheetStyle.accent, lineWidth: 1.5)
+    }
+
+    private var titleFieldSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("新建待办")
+                .font(.headline)
+                .foregroundStyle(AddTodoSheetStyle.accent)
+            AddTodoTitleTextField(
+                text: $titleText,
+                placeholder: "我想…",
+                wantsKeyboard: panelExpanded && formMode == .task && allowTitleKeyboard
+            )
+            .frame(maxWidth: .infinity, minHeight: AddTodoSheetStyle.fieldContentMinHeight, alignment: .leading)
+            .padding(.horizontal, AddTodoSheetStyle.fieldHorizontalPadding)
+            .padding(.vertical, AddTodoSheetStyle.fieldVerticalPadding)
+            .background(addTodoInputFieldChrome)
+        }
+    }
+
+    private var descriptionFieldSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("备注")
+                .font(.headline)
+                .foregroundStyle(AddTodoSheetStyle.accent)
+            TextField("别忘了...", text: $descriptionText)
+                .font(AddTodoSheetStyle.fieldFont)
+                .lineLimit(1)
+                .focused($isNotesFieldFocused)
+                .frame(maxWidth: .infinity, minHeight: AddTodoSheetStyle.fieldContentMinHeight, alignment: .leading)
+                .padding(.horizontal, AddTodoSheetStyle.fieldHorizontalPadding)
+                .padding(.vertical, AddTodoSheetStyle.fieldVerticalPadding)
+                .background(addTodoInputFieldChrome)
+        }
     }
 
     @ViewBuilder
@@ -1097,28 +1307,33 @@ private struct AddTodoSheet: View {
                             selectedCategoryId = category.id
                         }
                     } label: {
-                        Text(category.name)
-                            .font(.subheadline)
-                            .foregroundStyle(isSelected ? Color(hex: "#1b4332") : Color.secondary)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
-                            .background(
-                                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                    .fill(isSelected ? Color(hex: "#d8f3dc") : Color(.systemGray6))
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                    .stroke(
-                                        Color(hex: "#1b4332").opacity(isSelected ? 0.45 : 0.18),
-                                        lineWidth: 1
+                        HStack(spacing: 6) {
+                            Image(systemName: category.icon)
+                                .font(.caption.weight(.semibold))
+                            Text(category.name)
+                                .font(.subheadline)
+                        }
+                        .foregroundStyle(isSelected ? AddTodoSheetStyle.accent : Color.secondary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(isSelected ? AddTodoSheetStyle.accentFill : Color.clear)
+                        )
+                        .overlay(
+                            Capsule(style: .continuous)
+                                .strokeBorder(
+                                    isSelected ? AddTodoSheetStyle.accent : AddTodoSheetStyle.fieldBorder,
+                                    style: StrokeStyle(
+                                        lineWidth: 1,
+                                        dash: isSelected ? [] : [4, 3]
                                     )
-                            )
+                                )
+                        )
                     }
                     .buttonStyle(.plain)
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 2)
         }
         .accessibilityLabel("任务分类")
     }
@@ -1156,18 +1371,62 @@ private struct AddTodoSheet: View {
         showsEndTime = true
     }
 
-    private func splitDurationIntoWheels(_ totalMinutes: Int) {
+    private func splitDurationIntoDraft(_ totalMinutes: Int) {
         let total = max(1, totalMinutes)
-        durationHours = min(23, total / 60)
-        durationMinutes = total % 60
-        if durationHours == 0, durationMinutes == 0 {
-            durationMinutes = 1
+        draftDurationHours = min(23, total / 60)
+        draftDurationMinutes = total % 60
+        if draftDurationHours == 0, draftDurationMinutes == 0 {
+            draftDurationMinutes = 1
         }
     }
 
-    private func toggleExpandedField(_ field: TimeField) {
+    private func beginEditingTimeField(_ field: TimeField, onActivate: (() -> Void)? = nil) {
+        if expandedTimeField == field {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                cancelTimePicker()
+            }
+            return
+        }
+        onActivate?()
+        draftStartTime = startTime
+        draftEndTime = endTime
+        draftDurationHours = durationHours
+        draftDurationMinutes = durationMinutes
+        if field == .duration, !showsDuration {
+            splitDurationIntoDraft(totalDurationMinutes)
+        }
+        if field == .end, !showsEndTime {
+            draftEndTime = Calendar.current.date(byAdding: .hour, value: 1, to: startTime) ?? startTime
+        }
         withAnimation(.easeInOut(duration: 0.2)) {
-            expandedTimeField = expandedTimeField == field ? nil : field
+            expandedTimeField = field
+        }
+    }
+
+    private func cancelTimePicker() {
+        expandedTimeField = nil
+    }
+
+    private func confirmTimePicker() {
+        guard let field = expandedTimeField else { return }
+        switch field {
+        case .start:
+            startTime = draftStartTime
+            if showsDuration {
+                applyDurationToEndTime()
+            } else if showsEndTime {
+                applyEndTimeToDuration()
+            }
+        case .end:
+            endTime = draftEndTime
+            applyEndTimeToDuration()
+        case .duration:
+            durationHours = draftDurationHours
+            durationMinutes = draftDurationMinutes
+            applyDurationToEndTime()
+        }
+        withAnimation(.easeInOut(duration: 0.2)) {
+            expandedTimeField = nil
         }
     }
 
@@ -1183,14 +1442,13 @@ private struct AddTodoSheet: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
             Button {
-                if let onActivate { onActivate() }
-                toggleExpandedField(field)
+                beginEditingTimeField(field, onActivate: onActivate)
             } label: {
                 Group {
                     if let value {
                         Text(value)
                             .font(.subheadline)
-                            .foregroundStyle(Color(hex: "#1b4332"))
+                            .foregroundStyle(AddTodoSheetStyle.accent)
                             .lineLimit(1)
                             .minimumScaleFactor(0.75)
                     } else {
@@ -1204,7 +1462,13 @@ private struct AddTodoSheet: View {
                 .padding(.vertical, 6)
                 .background(
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(Color(hex: "#1b4332").opacity(0.22), lineWidth: 1)
+                        .strokeBorder(
+                            value == nil ? AddTodoSheetStyle.fieldBorder : AddTodoSheetStyle.accent.opacity(0.55),
+                            style: StrokeStyle(
+                                lineWidth: 1,
+                                dash: value == nil ? [4, 3] : []
+                            )
+                        )
                 )
             }
             .buttonStyle(.plain)
@@ -1213,38 +1477,61 @@ private struct AddTodoSheet: View {
     }
 
     private let timePickerWheelHeight: CGFloat = 148
+    private let timePickerConfirmBarHeight: CGFloat = 44
+    private var timePickerPanelHeight: CGFloat { timePickerWheelHeight + timePickerConfirmBarHeight }
 
     @ViewBuilder
     private var timePickerWheels: some View {
-        Group {
-            if expandedTimeField == .start {
-                DatePicker("", selection: $startTime, displayedComponents: .hourAndMinute)
-                    .datePickerStyle(.wheel)
-                    .labelsHidden()
-            } else if expandedTimeField == .end {
-                DatePicker("", selection: $endTime, displayedComponents: .hourAndMinute)
-                    .datePickerStyle(.wheel)
-                    .labelsHidden()
-            } else if expandedTimeField == .duration {
-                HStack(spacing: 0) {
-                    Picker("时", selection: $durationHours) {
-                        ForEach(0..<24, id: \.self) { h in
-                            Text("\(h) 小时").tag(h)
+        VStack(spacing: 0) {
+            Group {
+                if expandedTimeField == .start {
+                    DatePicker("", selection: $draftStartTime, displayedComponents: .hourAndMinute)
+                        .datePickerStyle(.wheel)
+                        .labelsHidden()
+                } else if expandedTimeField == .end {
+                    DatePicker("", selection: $draftEndTime, displayedComponents: .hourAndMinute)
+                        .datePickerStyle(.wheel)
+                        .labelsHidden()
+                } else if expandedTimeField == .duration {
+                    HStack(spacing: 0) {
+                        Picker("时", selection: $draftDurationHours) {
+                            ForEach(0..<24, id: \.self) { h in
+                                Text("\(h) 小时").tag(h)
+                            }
                         }
-                    }
-                    .pickerStyle(.wheel)
-                    .frame(maxWidth: .infinity)
-                    Picker("分", selection: $durationMinutes) {
-                        ForEach(0..<60, id: \.self) { m in
-                            Text("\(m) 分钟").tag(m)
+                        .pickerStyle(.wheel)
+                        .frame(maxWidth: .infinity)
+                        Picker("分", selection: $draftDurationMinutes) {
+                            ForEach(0..<60, id: \.self) { m in
+                                Text("\(m) 分钟").tag(m)
+                            }
                         }
+                        .pickerStyle(.wheel)
+                        .frame(maxWidth: .infinity)
                     }
-                    .pickerStyle(.wheel)
-                    .frame(maxWidth: .infinity)
                 }
             }
+            .frame(height: timePickerWheelHeight)
+
+            Divider()
+
+            HStack {
+                Button("取消") {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        cancelTimePicker()
+                    }
+                }
+                .foregroundStyle(.secondary)
+                Spacer()
+                Button("确定") {
+                    confirmTimePicker()
+                }
+                .font(.body.weight(.semibold))
+                .foregroundStyle(AddTodoSheetStyle.accentAction)
+            }
+            .padding(.horizontal, 16)
+            .frame(height: timePickerConfirmBarHeight)
         }
-        .frame(height: timePickerWheelHeight)
         .frame(maxWidth: .infinity)
         .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
@@ -1265,7 +1552,7 @@ private struct AddTodoSheet: View {
                 field: .duration,
                 onActivate: {
                     guard !showsDuration else { return }
-                    splitDurationIntoWheels(totalDurationMinutes)
+                    splitDurationIntoDraft(totalDurationMinutes)
                 }
             )
             timeSlotCell(
@@ -1277,141 +1564,70 @@ private struct AddTodoSheet: View {
         .overlay(alignment: .bottom) {
             if expandedTimeField != nil {
                 timePickerWheels
-                    .offset(y: -(timePickerWheelHeight + 6))
+                    .offset(y: -(timePickerPanelHeight + 6))
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
         .animation(.easeInOut(duration: 0.22), value: expandedTimeField)
         .zIndex(expandedTimeField == nil ? 0 : 2)
-        .padding(.top, expandedTimeField == nil ? 0 : timePickerWheelHeight + 6)
+        .padding(.top, expandedTimeField == nil ? 0 : timePickerPanelHeight + 6)
     }
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Color.white
-                    .ignoresSafeArea()
+        VStack(spacing: 0) {
+            sheetDragHandle
 
-                Form {
-                    Section {
+            modeSelectorBar
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
+
+            if formMode == .task {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 14) {
+                        titleFieldSection
+                        descriptionFieldSection
                         categoryPickerSection
-                    }
-                    .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-
-                    Section {
-                        VStack(alignment: .leading, spacing: 6) {
-                            AddTodoTitleTextField(
-                                text: $titleText,
-                                placeholder: "新建待办事项",
-                                wantsKeyboard: panelExpanded
-                            )
-                            .frame(maxWidth: .infinity, minHeight: 36, alignment: .leading)
-                            TextField("备注", text: $descriptionText, axis: .vertical)
-                                .font(.subheadline)
-                                .foregroundStyle(addTodoFormDebugTextFieldChrome ? Color.black : Color.primary)
-                                .lineLimit(2...4)
-                                .focused($isNotesFieldFocused)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 4)
-                                        .stroke(
-                                            addTodoFormDebugTextFieldChrome ? Color.black : Color.clear,
-                                            lineWidth: 2
-                                        )
-                                )
-                        }
-                    }
-                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
-                    .listRowSeparator(.hidden)
-
-                    Section {
                         timeSlotSection
                     }
-                    .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 4, trailing: 16))
-                    .listRowSeparator(.hidden)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 14)
+                    .padding(.bottom, 8)
                 }
-                .scrollContentBackground(.hidden)
-                .scrollDismissesKeyboard(.never)
-                .contentMargins(.top, 4, for: .scrollContent)
-                .contentMargins(.bottom, 0, for: .scrollContent)
-                .environment(\.defaultMinListRowHeight, 32)
-                .listSectionSpacing(0)
-            }
-            .navigationTitle("新建待办")
-            .navigationBarTitleDisplayMode(.inline)
-            .onChange(of: startTime) { _, _ in
-                if showsDuration, totalDurationMinutes > 0 {
-                    applyDurationToEndTime()
-                } else if showsEndTime {
-                    applyEndTimeToDuration()
-                }
-            }
-            .onChange(of: endTime) { _, _ in
-                guard expandedTimeField == .end || showsEndTime else { return }
-                if !showsEndTime {
-                    withAnimation(.easeInOut(duration: 0.2)) { showsEndTime = true }
-                }
-                applyEndTimeToDuration()
-            }
-            .onChange(of: durationHours) { _, _ in
-                guard expandedTimeField == .duration || showsDuration else { return }
-                if !showsDuration {
-                    withAnimation(.easeInOut(duration: 0.2)) { showsDuration = true }
-                }
-                applyDurationToEndTime()
-            }
-            .onChange(of: durationMinutes) { _, _ in
-                guard expandedTimeField == .duration || showsDuration else { return }
-                if !showsDuration {
-                    withAnimation(.easeInOut(duration: 0.2)) { showsDuration = true }
-                }
-                applyDurationToEndTime()
-            }
-            .onChange(of: panelExpanded) { _, open in
-                if open {
-                    applyDefaultTimeSlot()
-                } else {
-                    isNotesFieldFocused = false
-                    expandedTimeField = nil
-                }
-            }
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { onDismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("添加") {
-                        let t = titleText.trimmingCharacters(in: .whitespacesAndNewlines)
-                        let d = descriptionText.trimmingCharacters(in: .whitespacesAndNewlines)
-                        let cal = Calendar.current
-                        let resolvedEnd: Date
-                        if showsEndTime {
-                            resolvedEnd = Self.endDateIfNotAfterStart(start: startTime, end: endTime)
-                        } else if showsDuration {
-                            resolvedEnd = Calendar.current.date(
-                                byAdding: .minute,
-                                value: max(1, totalDurationMinutes),
-                                to: startTime
-                            ) ?? startTime
-                        } else {
-                            resolvedEnd = Self.endDateIfNotAfterStart(start: startTime, end: endTime)
-                        }
-                        let sh = cal.component(.hour, from: startTime)
-                        let sm = cal.component(.minute, from: startTime)
-                        let eh = cal.component(.hour, from: resolvedEnd)
-                        let em = cal.component(.minute, from: resolvedEnd)
-                        viewModel.addTodo(
-                            title: t.isEmpty ? "未命名待办" : t,
-                            description: d.isEmpty ? nil : d,
-                            timeSlotStartHour: sh,
-                            timeSlotStartMinute: sm,
-                            timeSlotEndHour: eh,
-                            timeSlotEndMinute: em
+                .scrollDismissesKeyboard(.interactively)
+
+                Button(action: submitTodo) {
+                    Text("创建")
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(AddTodoSheetStyle.accentAction)
                         )
-                        onDismiss()
-                    }
                 }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+                .padding(.bottom, 14)
+            } else {
+                Spacer(minLength: 0)
+                Text("即将推出")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 40)
+                Spacer(minLength: 0)
+            }
+        }
+        .background(Color.white)
+        .onChange(of: panelExpanded) { _, open in
+            if open {
+                applyDefaultTimeSlot()
+            } else {
+                dismissAllInputs()
+                titleText = ""
+                descriptionText = ""
             }
         }
     }
