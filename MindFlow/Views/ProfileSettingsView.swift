@@ -15,7 +15,7 @@ struct ProfileSettingsView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("个人设置")
                             .font(.largeTitle.weight(.bold))
-                            .foregroundStyle(Color(hex: "#1b4332"))
+                            .foregroundStyle(Color(hex: "#2B5748"))
                         Text("管理你的 Mindflow 账户与偏好")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
@@ -65,11 +65,11 @@ struct ProfileSettingsView: View {
         HStack(spacing: 12) {
             Image(systemName: icon)
                 .font(.body)
-                .foregroundStyle(Color(hex: "#2d6a4f"))
+                .foregroundStyle(Color(hex: "#2B5748"))
                 .frame(width: 28)
             Text(title)
                 .font(.body)
-                .foregroundStyle(Color(hex: "#1b4332"))
+                .foregroundStyle(Color(hex: "#2B5748"))
             Spacer()
             if let detail {
                 Text(detail)

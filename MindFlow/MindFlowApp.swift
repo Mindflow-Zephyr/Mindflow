@@ -22,17 +22,17 @@ enum MainTab: Int, CaseIterable {
         case .dashboard: return "house"
         case .todo: return "checklist"
         case .add: return "plus"
-        case .task: return "list.bullet"
+        case .task: return "square.grid.2x2"
         case .profile: return "person"
         }
     }
 
     var title: String {
         switch self {
-        case .dashboard: return "领域"
+        case .dashboard: return "生活"
         case .todo: return "待办"
         case .add: return ""
-        case .task: return "任务"
+        case .task: return "领域"
         case .profile: return "我的"
         }
     }
@@ -46,6 +46,8 @@ enum MainTab: Int, CaseIterable {
 struct MainTabView: View {
     @State private var selectedTab: MainTab = .todo
     @State private var showingAddTodo = false
+    @State private var showingCreateCategory = false
+    @State private var showingAddTask = false
 
     var body: some View {
         ZStack {
@@ -59,11 +61,11 @@ struct MainTabView: View {
             Group {
                 switch selectedTab {
                 case .dashboard:
-                    NavigationView { DashboardView() }
+                    NavigationView { DashboardView(showingCreateCategory: $showingCreateCategory) }
                 case .todo, .add:
                     NavigationView { TodoView(showingAddTodo: $showingAddTodo) }
                 case .task:
-                    NavigationView { TaskView() }
+                    NavigationView { TaskView(showingAddTask: $showingAddTask) }
                 case .profile:
                     NavigationView { ProfileSettingsView() }
                 }
@@ -81,37 +83,40 @@ struct MainTabView: View {
                 Spacer()
                 CustomBottomNavBar(
                     selectedTab: $selectedTab,
-                    onAddTapped: openAddTodo
+                    onAddTapped: handleNavAddTapped
                 )
             }
             .ignoresSafeArea(edges: .bottom)
         }
     }
 
-    private func openAddTodo() {
-        withAnimation(tabSpring) {
-            selectedTab = .todo
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+    private func handleNavAddTapped() {
+        switch selectedTab {
+        case .todo, .add:
             withAnimation(.spring(response: 0.42, dampingFraction: 0.88)) {
                 showingAddTodo = true
             }
+        case .dashboard:
+            withAnimation(.spring(response: 0.42, dampingFraction: 0.88)) {
+                showingCreateCategory = true
+            }
+        case .task:
+            showingAddTask = true
+        case .profile:
+            break
         }
-    }
-
-    private var tabSpring: Animation {
-        .spring(response: 0.46, dampingFraction: 0.76, blendDuration: 0.12)
     }
 }
 
 // MARK: - 参考 EverSync 样式的底部导航（配色为 Mindflow 绿）
 private enum BottomNavStyle {
-    static let barBackground = Color.white
-    static let inactiveCircle = Color(hex: "#F0F0F0")
+    static let inactiveCircle = Color.white.opacity(0.42)
+    static let inactiveCircleStroke = Color.white.opacity(0.55)
     static let iconMuted = Color(hex: "#6B7280")
     static let accent = Color(hex: "#2d6a4f")
-    static let accentDark = Color(hex: "#1b4332")
-    static let accentLight = Color(hex: "#d8f3dc")
+    static let addButton = Color(hex: "#6FCF97")
+    static let accentDark = Color(hex: "#2B5748")
+    static let accentLight = Color(hex: "#d8f3dc").opacity(0.88)
 }
 
 struct CustomBottomNavBar: View {
@@ -132,21 +137,20 @@ struct CustomBottomNavBar: View {
     var body: some View {
         HStack {
             Spacer(minLength: 0)
-            HStack(spacing: itemSpacing) {
-                sideTabButton(.todo)
-                sideTabButton(.dashboard)
-                centerAddButton()
-                sideTabButton(.task)
-                sideTabButton(.profile)
+            GlassEffectContainer {
+                HStack(spacing: itemSpacing) {
+                    sideTabButton(.todo)
+                    sideTabButton(.dashboard)
+                    centerAddButton()
+                    sideTabButton(.task)
+                    sideTabButton(.profile)
+                }
+                .padding(.horizontal, barInset)
+                .padding(.vertical, barInset)
+                .frame(height: barHeight)
+                .glassEffect(.regular.interactive(), in: Capsule(style: .continuous))
             }
-            .padding(.horizontal, barInset)
-            .padding(.vertical, barInset)
-            .frame(height: barHeight)
-            .background(
-                Capsule(style: .continuous)
-                    .fill(BottomNavStyle.barBackground)
-                    .shadow(color: Color.black.opacity(0.1), radius: 12, x: 0, y: 5)
-            )
+            .shadow(color: Color.black.opacity(0.12), radius: 16, x: 0, y: 8)
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 10)
@@ -156,9 +160,9 @@ struct CustomBottomNavBar: View {
     private func expandedWidth(for tab: MainTab) -> CGFloat {
         switch tab.title.count {
         case 0: return itemHeight
-        case 1: return itemHeight + 54
-        case 2: return itemHeight + 66
-        default: return itemHeight + 74
+        case 1: return itemHeight + 40
+        case 2: return itemHeight + 50
+        default: return itemHeight + 58
         }
     }
 
@@ -170,16 +174,16 @@ struct CustomBottomNavBar: View {
                 selectedTab = tab
             }
         } label: {
-            HStack(spacing: isSelected ? 19 : 0) {
+            HStack(spacing: isSelected ? 14 : 0) {
                 Image(systemName: tab.icon)
-                    .font(.system(size: 20, weight: isSelected ? .semibold : .regular))
+                    .font(.system(size: 18, weight: isSelected ? .semibold : .regular))
                     .frame(
-                        width: isSelected ? 22 : itemHeight,
+                        width: isSelected ? 20 : itemHeight,
                         height: itemHeight
                     )
 
                 Text(tab.title)
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.system(size: 18, weight: .semibold))
                     .tracking(1.6)
                     .lineLimit(1)
                     .opacity(isSelected ? 1 : 0)
@@ -187,8 +191,8 @@ struct CustomBottomNavBar: View {
                     .clipped()
             }
             .foregroundStyle(isSelected ? BottomNavStyle.accentDark : BottomNavStyle.iconMuted)
-            .padding(.leading, isSelected ? 10 : 0)
-            .padding(.trailing, isSelected ? 20 : 0)
+            .padding(.leading, isSelected ? 8 : 0)
+            .padding(.trailing, isSelected ? 14 : 0)
             .frame(width: isSelected ? expandedWidth(for: tab) : itemHeight, height: itemHeight)
             .background {
                 ZStack {
@@ -199,6 +203,10 @@ struct CustomBottomNavBar: View {
                     } else {
                         Circle()
                             .fill(BottomNavStyle.inactiveCircle)
+                            .overlay(
+                                Circle()
+                                    .stroke(BottomNavStyle.inactiveCircleStroke, lineWidth: 0.5)
+                            )
                     }
                 }
             }
@@ -217,7 +225,7 @@ struct CustomBottomNavBar: View {
                 .frame(width: itemHeight, height: itemHeight)
                 .background(
                     Circle()
-                        .fill(BottomNavStyle.accent)
+                        .fill(BottomNavStyle.addButton)
                 )
         }
         .buttonStyle(.plain)

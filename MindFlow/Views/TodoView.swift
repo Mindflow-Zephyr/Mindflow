@@ -5,7 +5,7 @@ import UIKit
 /// 新建待办：文本框黑框 + 黑字便于调尺寸；调完后改为 `false` 恢复默认样式
 private let addTodoFormDebugTextFieldChrome = false
 
-private func applyAddTodoTitleTextFieldDebugChrome(_ tf: UITextField) {
+private func applyMindFlowFormTitleTextFieldDebugChrome(_ tf: UITextField) {
     guard addTodoFormDebugTextFieldChrome else {
         tf.textColor = .label
         tf.backgroundColor = .clear
@@ -169,7 +169,7 @@ struct TodoView: View {
                     Text(period.title)
                         .font(.headline)
                         .fontWeight(.bold)
-                        .foregroundColor(Color(hex: "#1b4332"))
+                        .foregroundColor(Color(hex: "#2B5748"))
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.leading, 4)
                         .textCase(nil)
@@ -195,7 +195,7 @@ struct TodoView: View {
                 Text("今日完成")
                     .font(.system(size: 13, weight: .medium))
             }
-            .foregroundColor(Color(hex: "#081c15"))
+            .foregroundColor(Color(hex: "#2B5748"))
             .frame(width: 100, height: 100)
             .todoPanelCardChrome()
         }
@@ -307,7 +307,7 @@ private enum TodoLightBandConstants {
 }
 
 // MARK: - 待办大卡片统一外观（列表容器、「今日完成」等；无描边，仅白底 + 圆角 + 阴影）
-private enum TodoPanelCardChrome {
+enum TodoPanelCardChrome {
     static let cornerRadius: CGFloat = 16
     static let background = Color.white
     static let shadowColor = Color.black.opacity(0.1)
@@ -315,7 +315,7 @@ private enum TodoPanelCardChrome {
     static let shadowY: CGFloat = 2
 }
 
-private extension View {
+extension View {
     func todoPanelCardChrome(cornerRadius: CGFloat = TodoPanelCardChrome.cornerRadius) -> some View {
         background(TodoPanelCardChrome.background)
             .cornerRadius(cornerRadius)
@@ -430,14 +430,14 @@ struct TodoCardView: View {
         if todo.isCompleted {
             Image(systemName: "chevron.right")
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(Color(hex: "#1b4332"))
+                .foregroundColor(Color(hex: "#2B5748"))
         } else if viewModel.showsWorkTimer(todoId: todo.id) {
             Group {
                 if viewModel.isWorkTimerRunning(todoId: todo.id) {
                     TimelineView(.periodic(from: .now, by: 1)) { _ in
                         Text(Self.formatWorkSeconds(viewModel.currentWorkSeconds(todoId: todo.id)))
                             .font(.system(size: 17, weight: .semibold, design: .monospaced))
-                            .foregroundColor(Color(hex: "#1b4332"))
+                            .foregroundColor(Color(hex: "#2B5748"))
                     }
                 } else {
                     Text(Self.formatWorkSeconds(viewModel.currentWorkSeconds(todoId: todo.id)))
@@ -448,7 +448,7 @@ struct TodoCardView: View {
         } else {
             Image(systemName: "chevron.right")
                 .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(Color(hex: "#1b4332"))
+                .foregroundColor(Color(hex: "#2B5748"))
         }
     }
 
@@ -471,7 +471,7 @@ struct TodoCardView: View {
                     Text(todo.timeSlotDisplayText)
                         .font(.subheadline)
                         .fontWeight(.medium)
-                        .foregroundColor(Color(hex: "#1b4332"))
+                        .foregroundColor(Color(hex: "#2B5748"))
                         .frame(maxWidth: .infinity, alignment: .leading)
 
                     if todo.isCompleted, let spent = todo.completionDurationDisplayText {
@@ -957,81 +957,6 @@ extension TodoItem {
     }
 }
 
-private func applyAddTodoTitleTextFieldPlaceholder(_ tf: UITextField, text: String) {
-    tf.attributedPlaceholder = NSAttributedString(
-        string: text,
-        attributes: [
-            .foregroundColor: UIColor.placeholderText,
-            .font: AddTodoSheetStyle.fieldUIFont
-        ]
-    )
-}
-
-/// 标题用 `UITextField`；`wantsKeyboard == true` 时在已入窗的视图上立刻要第一响应者，与外层面板位移动画并行。
-private struct AddTodoTitleTextField: UIViewRepresentable {
-    @Binding var text: String
-    var placeholder: String
-    /// 与面板展开同步；收起时复位并 `resignFirstResponder`，便于下次再弹出键盘
-    var wantsKeyboard: Bool
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(self)
-    }
-
-    func makeUIView(context: Context) -> UITextField {
-        let tf = UITextField()
-        applyAddTodoTitleTextFieldPlaceholder(tf, text: placeholder)
-        tf.font = AddTodoSheetStyle.fieldUIFont
-        tf.textColor = UIColor.label
-        tf.returnKeyType = .default
-        tf.delegate = context.coordinator
-        tf.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        tf.addTarget(context.coordinator, action: #selector(Coordinator.editingChanged(_:)), for: .editingChanged)
-        applyAddTodoTitleTextFieldDebugChrome(tf)
-        return tf
-    }
-
-    func updateUIView(_ uiView: UITextField, context: Context) {
-        context.coordinator.parent = self
-        applyAddTodoTitleTextFieldDebugChrome(uiView)
-        uiView.font = AddTodoSheetStyle.fieldUIFont
-        applyAddTodoTitleTextFieldPlaceholder(uiView, text: placeholder)
-        if !wantsKeyboard {
-            context.coordinator.didApplyInitialFocus = false
-            uiView.resignFirstResponder()
-            if uiView.text != text { uiView.text = text }
-            return
-        }
-        if uiView.text != text {
-            uiView.text = text
-        }
-        guard uiView.window != nil else { return }
-        if !context.coordinator.didApplyInitialFocus {
-            if uiView.becomeFirstResponder() {
-                context.coordinator.didApplyInitialFocus = true
-            }
-        }
-    }
-
-    final class Coordinator: NSObject, UITextFieldDelegate {
-        var parent: AddTodoTitleTextField
-        var didApplyInitialFocus = false
-
-        init(_ parent: AddTodoTitleTextField) {
-            self.parent = parent
-        }
-
-        @objc func editingChanged(_ sender: UITextField) {
-            parent.text = sender.text ?? ""
-        }
-
-        func textFieldShouldReturn(_ textField: UITextField) -> Bool {
-            textField.resignFirstResponder()
-            return true
-        }
-    }
-}
-
 // MARK: - 待办任务分类（暂定本地类目）
 private struct TodoTaskCategory: Identifiable, Hashable {
     let id: Int
@@ -1073,18 +998,6 @@ private enum AddTodoFormMode: String, CaseIterable, Identifiable {
         case .voice: return "mic.fill"
         }
     }
-}
-
-private enum AddTodoSheetStyle {
-    static let accent = Color(hex: "#1b4332")
-    static let accentAction = Color(hex: "#2d6a4f")
-    static let accentFill = Color(hex: "#d8f3dc")
-    static let fieldBorder = Color(hex: "#C8D5CC")
-    static let fieldFont = Font.body
-    static let fieldUIFont = UIFont.preferredFont(forTextStyle: .body)
-    static let fieldHorizontalPadding: CGFloat = 14
-    static let fieldVerticalPadding: CGFloat = 12
-    static let fieldContentMinHeight: CGFloat = 22
 }
 
 // MARK: - 新建待办（自定义底部面板）
@@ -1239,16 +1152,16 @@ private struct AddTodoSheet: View {
                                 .foregroundStyle(Color(hex: "#F5B301"))
                         }
                     }
-                    .foregroundStyle(isSelected ? Color.white : AddTodoSheetStyle.accent)
+                    .foregroundStyle(isSelected ? Color.white : MindFlowFormSheetStyle.accent)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 9)
                     .background(
                         Capsule(style: .continuous)
-                            .fill(isSelected ? AddTodoSheetStyle.accentAction : Color.clear)
+                            .fill(isSelected ? MindFlowFormSheetStyle.accentAction : Color.clear)
                     )
                     .overlay(
                         Capsule(style: .continuous)
-                            .stroke(AddTodoSheetStyle.accentAction, lineWidth: isSelected ? 0 : 1)
+                            .stroke(MindFlowFormSheetStyle.accentAction, lineWidth: isSelected ? 0 : 1)
                     )
                 }
                 .buttonStyle(.plain)
@@ -1260,22 +1173,22 @@ private struct AddTodoSheet: View {
 
     private var addTodoInputFieldChrome: some View {
         RoundedRectangle(cornerRadius: 12, style: .continuous)
-            .stroke(AddTodoSheetStyle.accent, lineWidth: 1.5)
+            .stroke(MindFlowFormSheetStyle.accent, lineWidth: 1.5)
     }
 
     private var titleFieldSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("新建待办")
                 .font(.headline)
-                .foregroundStyle(AddTodoSheetStyle.accent)
-            AddTodoTitleTextField(
+                .foregroundStyle(MindFlowFormSheetStyle.accent)
+            MindFlowFormTitleTextField(
                 text: $titleText,
                 placeholder: "我想…",
                 wantsKeyboard: panelExpanded && formMode == .task && allowTitleKeyboard
             )
-            .frame(maxWidth: .infinity, minHeight: AddTodoSheetStyle.fieldContentMinHeight, alignment: .leading)
-            .padding(.horizontal, AddTodoSheetStyle.fieldHorizontalPadding)
-            .padding(.vertical, AddTodoSheetStyle.fieldVerticalPadding)
+            .frame(maxWidth: .infinity, minHeight: MindFlowFormSheetStyle.fieldContentMinHeight, alignment: .leading)
+            .padding(.horizontal, MindFlowFormSheetStyle.fieldHorizontalPadding)
+            .padding(.vertical, MindFlowFormSheetStyle.fieldVerticalPadding)
             .background(addTodoInputFieldChrome)
         }
     }
@@ -1284,14 +1197,14 @@ private struct AddTodoSheet: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("备注")
                 .font(.headline)
-                .foregroundStyle(AddTodoSheetStyle.accent)
+                .foregroundStyle(MindFlowFormSheetStyle.accent)
             TextField("别忘了...", text: $descriptionText)
-                .font(AddTodoSheetStyle.fieldFont)
+                .font(MindFlowFormSheetStyle.fieldFont)
                 .lineLimit(1)
                 .focused($isNotesFieldFocused)
-                .frame(maxWidth: .infinity, minHeight: AddTodoSheetStyle.fieldContentMinHeight, alignment: .leading)
-                .padding(.horizontal, AddTodoSheetStyle.fieldHorizontalPadding)
-                .padding(.vertical, AddTodoSheetStyle.fieldVerticalPadding)
+                .frame(maxWidth: .infinity, minHeight: MindFlowFormSheetStyle.fieldContentMinHeight, alignment: .leading)
+                .padding(.horizontal, MindFlowFormSheetStyle.fieldHorizontalPadding)
+                .padding(.vertical, MindFlowFormSheetStyle.fieldVerticalPadding)
                 .background(addTodoInputFieldChrome)
         }
     }
@@ -1313,17 +1226,17 @@ private struct AddTodoSheet: View {
                             Text(category.name)
                                 .font(.subheadline)
                         }
-                        .foregroundStyle(isSelected ? AddTodoSheetStyle.accent : Color.secondary)
+                        .foregroundStyle(isSelected ? MindFlowFormSheetStyle.accent : Color.secondary)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
                         .background(
                             Capsule(style: .continuous)
-                                .fill(isSelected ? AddTodoSheetStyle.accentFill : Color.clear)
+                                .fill(isSelected ? MindFlowFormSheetStyle.accentFill : Color.clear)
                         )
                         .overlay(
                             Capsule(style: .continuous)
                                 .strokeBorder(
-                                    isSelected ? AddTodoSheetStyle.accent : AddTodoSheetStyle.fieldBorder,
+                                    isSelected ? MindFlowFormSheetStyle.accent : MindFlowFormSheetStyle.fieldBorder,
                                     style: StrokeStyle(
                                         lineWidth: 1,
                                         dash: isSelected ? [] : [4, 3]
@@ -1448,7 +1361,7 @@ private struct AddTodoSheet: View {
                     if let value {
                         Text(value)
                             .font(.subheadline)
-                            .foregroundStyle(AddTodoSheetStyle.accent)
+                            .foregroundStyle(MindFlowFormSheetStyle.accent)
                             .lineLimit(1)
                             .minimumScaleFactor(0.75)
                     } else {
@@ -1463,7 +1376,7 @@ private struct AddTodoSheet: View {
                 .background(
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .strokeBorder(
-                            value == nil ? AddTodoSheetStyle.fieldBorder : AddTodoSheetStyle.accent.opacity(0.55),
+                            value == nil ? MindFlowFormSheetStyle.fieldBorder : MindFlowFormSheetStyle.accent.opacity(0.55),
                             style: StrokeStyle(
                                 lineWidth: 1,
                                 dash: value == nil ? [4, 3] : []
@@ -1527,7 +1440,7 @@ private struct AddTodoSheet: View {
                     confirmTimePicker()
                 }
                 .font(.body.weight(.semibold))
-                .foregroundStyle(AddTodoSheetStyle.accentAction)
+                .foregroundStyle(MindFlowFormSheetStyle.accentAction)
             }
             .padding(.horizontal, 16)
             .frame(height: timePickerConfirmBarHeight)
@@ -1603,7 +1516,7 @@ private struct AddTodoSheet: View {
                         .padding(.vertical, 16)
                         .background(
                             Capsule(style: .continuous)
-                                .fill(AddTodoSheetStyle.accentAction)
+                                .fill(MindFlowFormSheetStyle.accentAction)
                         )
                 }
                 .buttonStyle(.plain)
@@ -1650,16 +1563,16 @@ struct TodoDetailView: View {
             VStack(alignment: .leading, spacing: 18) {
                 Text(todo.title)
                     .font(.title2.weight(.bold))
-                    .foregroundColor(Color(hex: "#1b4332"))
+                    .foregroundColor(Color(hex: "#2B5748"))
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                 Label {
                     Text(todo.timeSlotDisplayText)
                         .font(.subheadline)
-                        .foregroundColor(Color(hex: "#1b4332"))
+                        .foregroundColor(Color(hex: "#2B5748"))
                 } icon: {
                     Image(systemName: "clock")
-                        .foregroundColor(Color(hex: "#1b4332"))
+                        .foregroundColor(Color(hex: "#2B5748"))
                 }
 
                 if let desc = todo.description, !desc.isEmpty {
@@ -1691,7 +1604,7 @@ struct TodoDetailView: View {
                                 .foregroundColor(.secondary)
                             Text(spent)
                                 .font(.subheadline)
-                                .foregroundColor(Color(hex: "#1b4332"))
+                                .foregroundColor(Color(hex: "#2B5748"))
                         }
                     }
                     if let done = todo.completedDate {

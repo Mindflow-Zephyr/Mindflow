@@ -2,9 +2,13 @@ import SwiftUI
 import Combine
 
 struct TaskView: View {
+    @Binding var showingAddTask: Bool
     @StateObject private var viewModel = TaskViewModel()
-    @State private var showingAddTask = false
     @State private var showingAddSubtask = false
+
+    init(showingAddTask: Binding<Bool> = .constant(false)) {
+        _showingAddTask = showingAddTask
+    }
     
     var body: some View {
         ZStack {
@@ -73,16 +77,6 @@ struct TaskView: View {
         }
         .task {
             await viewModel.loadTasks()
-        }
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button(action: {
-                    showingAddTask = true
-                }) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 20, weight: .semibold))
-                }
-            }
         }
         .sheet(isPresented: $showingAddTask) {
             AddTaskView(viewModel: viewModel, parentId: nil)
