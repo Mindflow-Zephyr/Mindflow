@@ -61,7 +61,7 @@ struct MainTabView: View {
             Group {
                 switch selectedTab {
                 case .dashboard:
-                    NavigationView { DashboardView(showingCreateCategory: $showingCreateCategory) }
+                    DashboardView(showingCreateCategory: $showingCreateCategory)
                 case .todo, .add:
                     NavigationView { TodoView(showingAddTodo: $showingAddTodo) }
                 case .task:
