@@ -641,7 +641,8 @@ class TodoViewModel: ObservableObject {
         timeSlotStartHour: Int,
         timeSlotStartMinute: Int,
         timeSlotEndHour: Int,
-        timeSlotEndMinute: Int
+        timeSlotEndMinute: Int,
+        taskCategoryId: Int? = nil
     ) {
         let newId = (todos.map(\.id).max() ?? 0) + 1
         let item = TodoItem(
@@ -655,7 +656,8 @@ class TodoViewModel: ObservableObject {
             timeSlotStartHour: timeSlotStartHour,
             timeSlotStartMinute: timeSlotStartMinute,
             timeSlotEndHour: timeSlotEndHour,
-            timeSlotEndMinute: timeSlotEndMinute
+            timeSlotEndMinute: timeSlotEndMinute,
+            taskCategoryId: taskCategoryId
         )
         todos.append(item)
     }
@@ -676,10 +678,14 @@ class TodoViewModel: ObservableObject {
             let now = Date()
             let todoId = todos[index].id
             let workSeconds = consumeWorkTimerForCompletion(todoId: todoId)
-            todos[index].completedDate = now
-            todos[index].completionDurationSeconds = workSeconds > 0
+            let duration = workSeconds > 0
                 ? workSeconds
                 : max(0, Int(now.timeIntervalSince(todos[index].createdAt)))
+            todos[index].completedDate = now
+            todos[index].completionDurationSeconds = duration
+            if todos[index].taskCategoryId == TodoTaskCategoryCatalog.outfitCategoryId {
+                OutfitResearchTimeStore.add(seconds: TimeInterval(duration))
+            }
         } else {
             todos[index].completedDate = nil
             todos[index].completionDurationSeconds = nil
@@ -809,11 +815,14 @@ struct TodoItem: Identifiable, Codable, Hashable {
     var timeSlotEndHour: Int
     /// 结束分钟 0–59（`timeSlotEndHour == 24` 时忽略，视为 0）
     var timeSlotEndMinute: Int
+    /// 待办分类 ID，对应 `TodoTaskCategoryCatalog`
+    var taskCategoryId: Int?
 
     enum CodingKeys: String, CodingKey {
         case id, title, description, isCompleted, createdAt, completedDate
         case completionDurationSeconds
         case timeSlotStartHour, timeSlotStartMinute, timeSlotEndHour, timeSlotEndMinute
+        case taskCategoryId
     }
 
     init(
@@ -827,7 +836,8 @@ struct TodoItem: Identifiable, Codable, Hashable {
         timeSlotStartHour: Int = 0,
         timeSlotStartMinute: Int = 0,
         timeSlotEndHour: Int = 1,
-        timeSlotEndMinute: Int = 0
+        timeSlotEndMinute: Int = 0,
+        taskCategoryId: Int? = nil
     ) {
         self.id = id
         self.title = title
@@ -840,6 +850,7 @@ struct TodoItem: Identifiable, Codable, Hashable {
         self.timeSlotStartMinute = timeSlotStartMinute
         self.timeSlotEndHour = timeSlotEndHour
         self.timeSlotEndMinute = timeSlotEndMinute
+        self.taskCategoryId = taskCategoryId
     }
 
     init(from decoder: Decoder) throws {
@@ -855,6 +866,7 @@ struct TodoItem: Identifiable, Codable, Hashable {
         timeSlotStartMinute = try container.decodeIfPresent(Int.self, forKey: .timeSlotStartMinute) ?? 0
         timeSlotEndHour = try container.decodeIfPresent(Int.self, forKey: .timeSlotEndHour) ?? 1
         timeSlotEndMinute = try container.decodeIfPresent(Int.self, forKey: .timeSlotEndMinute) ?? 0
+        taskCategoryId = try container.decodeIfPresent(Int.self, forKey: .taskCategoryId)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -870,6 +882,7 @@ struct TodoItem: Identifiable, Codable, Hashable {
         try container.encode(timeSlotStartMinute, forKey: .timeSlotStartMinute)
         try container.encode(timeSlotEndHour, forKey: .timeSlotEndHour)
         try container.encode(timeSlotEndMinute, forKey: .timeSlotEndMinute)
+        try container.encodeIfPresent(taskCategoryId, forKey: .taskCategoryId)
     }
 
     func hash(into hasher: inout Hasher) {
@@ -972,8 +985,11 @@ private enum TodoTaskCategoryCatalog {
         TodoTaskCategory(id: 4, name: "健康", icon: "heart"),
         TodoTaskCategory(id: 5, name: "财务", icon: "yensign.circle"),
         TodoTaskCategory(id: 6, name: "社交", icon: "person.2"),
-        TodoTaskCategory(id: 7, name: "其他", icon: "ellipsis.circle")
+        TodoTaskCategory(id: 7, name: "其他", icon: "ellipsis.circle"),
+        TodoTaskCategory(id: OutfitTodoCategory.outfitTaskCategoryId, name: "穿搭", icon: "tshirt")
     ]
+
+    static var outfitCategoryId: Int { OutfitTodoCategory.outfitTaskCategoryId }
 }
 
 private enum AddTodoFormMode: String, CaseIterable, Identifiable {
@@ -1115,7 +1131,8 @@ private struct AddTodoSheet: View {
             timeSlotStartHour: sh,
             timeSlotStartMinute: sm,
             timeSlotEndHour: eh,
-            timeSlotEndMinute: em
+            timeSlotEndMinute: em,
+            taskCategoryId: selectedCategoryId
         )
         titleText = ""
         descriptionText = ""
