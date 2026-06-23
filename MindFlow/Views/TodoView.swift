@@ -42,6 +42,98 @@ enum TodoDayPeriod: Int, CaseIterable, Identifiable {
     }
 }
 
+private enum TodoCardLayoutMetrics {
+    /// 「今日待办 / 今日完成」等小标题距卡片顶部的内边距
+    static let titleTopInset: CGFloat = 14
+    /// 小标题与下方列表的间距
+    static let titleBottomInset: CGFloat = 12
+    static let titleLineHeight: CGFloat = 22
+    static var titleBarHeight: CGFloat { titleTopInset + titleLineHeight + titleBottomInset }
+    static let listHorizontalPadding: CGFloat = 8
+    static let listBottomPadding: CGFloat = 12
+    static let sectionSpacing: CGFloat = 14
+    /// 无待办时的内容区高度（尽量紧凑）
+    static let emptyStateHeight: CGFloat = 38
+    /// 有待办时：在 cardWidth 基础上额外增加的高度，形成固定大卡片
+    static let filledCardExtraHeight: CGFloat = 120
+
+    static let emptyActiveMessages = [
+        "享受属于你的时间",
+        "生活需要一点留白",
+        "休息也是计划的一部分"
+    ]
+}
+
+/// 待办列表行卡片（单条待办）排版，可按需调整数值
+private enum TodoRowCardMetrics {
+    /// 标题与副标题（时段 / 用时）间距
+    static let titleSubtitleSpacing: CGFloat = 10
+    /// 已完成「用时」字号（alarm 旁文字与图标同档）
+    static let completedDurationFontSize: CGFloat = 13
+    /// 分类胶囊字号（比标题 `.headline` 略小，可自行微调）
+    static let categoryCapsuleFontSize: CGFloat = 13
+    /// 删除线相对文字中心的垂直上移（pt，负值向上）
+    static let strikethroughVerticalOffset: CGFloat = -1
+    /// 删除线粗细（pt）
+    static let strikethroughLineWidth: CGFloat = 1.5
+    /// 详情页待办事项 / 备注卡片共用最小高度
+    static let detailInlineCardMinHeight: CGFloat = 40
+    /// 详情页时间行：标题列
+    static let detailTimeRowTitleWidth: CGFloat = 100
+    /// 详情页时间行：标题列左右内边距
+    static let detailTimeRowTitleHorizontalInset: CGFloat = 10
+    /// 详情页时间行：年月日列宽度（各行对齐，可调试）
+    static let detailTimeRowDateWidth: CGFloat = 110
+    /// 详情页时间行：时间段列宽度（各行对齐，可调试）
+    static let detailTimeRowSlotWidth: CGFloat = 72
+    /// 详情页时间行：年月日与时间段整体右移（可调试）
+    static let detailTimeRowDateSlotGroupOffset: CGFloat = 10
+    /// 详情页时间行：年月日与时间段间距（各行一致，保证时间段列对齐）
+    static let detailTimeRowDateToSlotSpacing: CGFloat = 30
+    /// 详情页时间胶囊背景色
+    static let detailTimeCapsuleFillColor = Color(hex: "#88BDA4")
+    /// 详情页时间行高度
+    static let detailTimeRowHeight: CGFloat = 40
+    /// 详情页备注小标题距顶
+    static let detailNoteTitleTopPadding: CGFloat = 6
+    /// 详情页备注标题到输入框间距
+    static let detailNoteTitleToInputSpacing: CGFloat = 8
+    /// 详情页备注输入框最小高度
+    static let detailNoteInputMinHeight: CGFloat = 36
+    /// 详情页备注输入框字号
+    static let detailNoteContentFont: Font = .subheadline.weight(.semibold)
+    /// 详情页备注输入框水平内边距
+    static let detailNoteInputHorizontalPadding: CGFloat = 10
+    /// 详情页备注输入框垂直内边距
+    static let detailNoteInputVerticalPadding: CGFloat = 6
+    /// 详情页备注输入框垂直微调（可调试，正值下移，作用于整块输入区）
+    static let detailNoteInputVerticalOffset: CGFloat = 6
+    /// 详情页备注换行测量时的宽度安全边距（略小于可见宽，避免 TextField 出现 …）
+    static let detailNoteInputWidthSafetyMargin: CGFloat = 6
+    /// 详情页备注行数增加时的展开动画
+    static let detailNoteExpandAnimation: Animation = .easeInOut(duration: 0.22)
+    /// 详情页底部信息行卡片高度（创建 / 时长 / 分类）
+    static let detailMetaRowCardHeight: CGFloat = 88
+    /// 详情页底部信息卡小标题距顶（非比例布局备用）
+    static let detailMetaChipTopPadding: CGFloat = 10
+    /// 详情页底部信息卡标题/正文整体上移（可调试，负值上移）
+    static let detailMetaChipVerticalOffset: CGFloat = -6
+    /// 详情页首卡距顶部的间距
+    static let detailPageTopInset: CGFloat = 4
+    /// 详情页待办 / 备注卡片上下内边距（一致）
+    static let detailInlineCardVerticalPadding: CGFloat = 14
+}
+
+/// 待办卡片动效：收缩（大→小）单独配置，其余切换更轻更快
+private enum TodoCardMotion {
+    /// 删除/完成最后一个待办：大卡片 → 小卡片
+    static let shrink = Animation.spring(duration: 0.68, bounce: 0.34)
+    /// 新增第一条待办：小 → 大
+    static let grow = Animation.spring(duration: 0.44, bounce: 0.10)
+    /// 未完成 / 已完成左右滑切
+    static let slide = Animation.spring(duration: 0.38, bounce: 0.06)
+}
+
 // MARK: - 主程序
 struct TodoView: View {
     
@@ -49,6 +141,7 @@ struct TodoView: View {
     @StateObject private var viewModel = TodoViewModel()     // 界面数据与逻辑模型
     @State private var showCompleted = false  // 未完成/已完成 UI状态
     @State private var detailNavigationTodo: TodoItem?  // 要进入哪个待办详情
+    @State private var emptyActiveTodoMessage = ""
 
     init(showingAddTodo: Binding<Bool> = .constant(false)) {
         _showingAddTodo = showingAddTodo
@@ -71,24 +164,54 @@ struct TodoView: View {
         return max(0, width - 40)
     }
 
-    /// 主卡片高度（比宽度更高，留出更多列表区域）
-    private func cardHeight(for screenWidth: CGFloat) -> CGFloat {
-        max(1, cardSize(for: screenWidth) + 120)
+    /// 未完成 / 已完成卡片左右滑动切换
+    private var todoCardSlideAnimation: Animation { TodoCardMotion.slide }
+
+    /// 有待办时的固定卡片高度（列表区域内滚动）
+    private func cardFilledHeight(cardWidth: CGFloat) -> CGFloat {
+        max(1, cardWidth + TodoCardLayoutMetrics.filledCardExtraHeight)
+    }
+
+    /// 仅两种高度：无待办（紧凑）/ 有待办（固定大卡片）
+    private func todosCardHeight(hasTodos: Bool, cardWidth: CGFloat) -> CGFloat {
+        if hasTodos {
+            return cardFilledHeight(cardWidth: cardWidth)
+        }
+        return TodoCardLayoutMetrics.titleBarHeight
+            + TodoCardLayoutMetrics.emptyStateHeight
+            + TodoCardLayoutMetrics.listBottomPadding
+    }
+
+    private func pickEmptyActiveTodoMessage() {
+        emptyActiveTodoMessage = TodoCardLayoutMetrics.emptyActiveMessages.randomElement()
+            ?? TodoCardLayoutMetrics.emptyActiveMessages[0]
     }
     
     // 待办事项和完成事项卡片容器
     private func todoCardContainer(width: CGFloat) -> some View {
         let cardWidth = cardSize(for: width)
-        let cardHeight = cardHeight(for: width)
+        let visibleTodos = showCompleted ? viewModel.completedTodos : viewModel.activeTodos
+        let cardHeight = todosCardHeight(hasTodos: !visibleTodos.isEmpty, cardWidth: cardWidth)
 
         return VStack(spacing: 8) {
             Group {
                 if showCompleted {
-                    completedTodosCard(width: cardWidth, height: cardHeight)
+                    completedTodosCard(width: cardWidth)
+                        .transition(.asymmetric(
+                            insertion: .move(edge: .trailing).combined(with: .opacity),
+                            removal: .move(edge: .leading).combined(with: .opacity)
+                        ))
                 } else {
-                    activeTodosCard(width: cardWidth, height: cardHeight)
+                    activeTodosCard(width: cardWidth)
+                        .transition(.asymmetric(
+                            insertion: .move(edge: .leading).combined(with: .opacity),
+                            removal: .move(edge: .trailing).combined(with: .opacity)
+                        ))
                 }
             }
+            .frame(width: cardWidth, height: cardHeight)
+            .todoPanelCardChrome()
+            .animation(todoCardSlideAnimation, value: showCompleted)
 
             HStack {
                 Spacer(minLength: 0)
@@ -98,46 +221,90 @@ struct TodoView: View {
         .padding(.horizontal, 20)
         .padding(.bottom, 100)
         .frame(width: max(0, width))
-    }
-    
-    // 完成事项卡片
-    private func completedTodosCard(width: CGFloat, height: CGFloat) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            periodGroupedTodosList(
-                viewModel: viewModel,
-                todos: viewModel.completedTodos,
-                onOpenTodoDetail: { detailNavigationTodo = $0 }
-            )
-            .padding(.horizontal, 8)
-            .padding(.bottom, 8)
-            .padding(.top, 8)
+        .onChange(of: viewModel.activeTodos.count) { _, count in
+            if count == 0 {
+                pickEmptyActiveTodoMessage()
+            }
         }
-        .frame(width: width, height: height)
-        .todoPanelCardChrome()
-        .transition(.asymmetric(
-            insertion: .move(edge: .trailing).combined(with: .opacity),
-            removal: .move(edge: .leading).combined(with: .opacity)
-        ))
-    }
-    
-    // 未完成事项卡片
-    private func activeTodosCard(width: CGFloat, height: CGFloat) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            periodGroupedTodosList(
-                viewModel: viewModel,
-                todos: viewModel.activeTodos,
-                onOpenTodoDetail: { detailNavigationTodo = $0 }
-            )
-            .padding(.horizontal, 8)
-            .padding(.bottom, 8)
-            .padding(.top, 8)
+        .onAppear {
+            if viewModel.activeTodos.isEmpty {
+                pickEmptyActiveTodoMessage()
+            }
         }
-        .frame(width: width, height: height)
-        .todoPanelCardChrome()
-        .transition(.asymmetric(
-            insertion: .move(edge: .leading).combined(with: .opacity),
-            removal: .move(edge: .trailing).combined(with: .opacity)
-        ))
+    }
+
+    private func activeTodosCard(width: CGFloat) -> some View {
+        todosCardPanel(
+            width: width,
+            title: "今日待办",
+            todos: viewModel.activeTodos,
+            emptyMessage: emptyActiveTodoMessage
+        )
+    }
+
+    private func completedTodosCard(width: CGFloat) -> some View {
+        todosCardPanel(
+            width: width,
+            title: "今日完成",
+            todos: viewModel.completedTodos,
+            emptyMessage: "暂无已完成事项",
+            groupByPeriod: false
+        )
+    }
+
+    private func todosCardPanel(
+        width: CGFloat,
+        title: String,
+        todos: [TodoItem],
+        emptyMessage: String,
+        groupByPeriod: Bool = true
+    ) -> some View {
+        let hasTodos = !todos.isEmpty
+        let cardH = todosCardHeight(hasTodos: hasTodos, cardWidth: width)
+        let listAreaHeight = max(
+            0,
+            cardH - TodoCardLayoutMetrics.titleBarHeight - TodoCardLayoutMetrics.listBottomPadding
+        )
+
+        return VStack(alignment: .leading, spacing: 0) {
+            Text(title)
+                .font(.headline)
+                .fontWeight(.bold)
+                .foregroundColor(Color(hex: "#2B5748"))
+                .padding(.horizontal, 16)
+                .padding(.top, TodoCardLayoutMetrics.titleTopInset)
+                .padding(.bottom, TodoCardLayoutMetrics.titleBottomInset)
+
+            if !hasTodos {
+                Text(emptyMessage)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, TodoCardLayoutMetrics.listBottomPadding)
+            } else {
+                Group {
+                    if groupByPeriod {
+                        periodGroupedTodosList(
+                            viewModel: viewModel,
+                            todos: todos,
+                            onOpenTodoDetail: { detailNavigationTodo = $0 }
+                        )
+                    } else {
+                        completionSortedTodosList(
+                            viewModel: viewModel,
+                            todos: todos,
+                            onOpenTodoDetail: { detailNavigationTodo = $0 }
+                        )
+                    }
+                }
+                .padding(.horizontal, TodoCardLayoutMetrics.listHorizontalPadding)
+                .padding(.bottom, TodoCardLayoutMetrics.listBottomPadding)
+                .frame(height: listAreaHeight)
+            }
+        }
+        .frame(width: width, height: cardH)
+        .background(TodoPanelCardChrome.background)
     }
 
     /// 按凌晨 / 早上 / 下午 / 晚上分组展示待办。
@@ -150,57 +317,104 @@ struct TodoView: View {
         List {
             ForEach(TodoDayPeriod.allCases) { period in
                 let items = todos.filter { $0.periodBucket == period }
-                Section {
-                    // 始终用 ForEach：避免「最后一项删光」时在占位行与 ForEach 之间切换，Section 结构突变导致标题/分区整体上跳。
-                    ForEach(items) { todo in
-                        TodoCardView(
-                            viewModel: viewModel,
-                            todo: todo,
-                            onOpenDetail: { onOpenTodoDetail(todo) },
-                            onDelete: {
-                                viewModel.beginRowSlideOut(id: todo.id, action: .delete)
-                            }
-                        )
-                        .listRowSeparator(.hidden)
-                        .listRowInsets(EdgeInsets(top: 6, leading: 4, bottom: 6, trailing: 4))
-                        .listRowBackground(Color.clear)
+                if !items.isEmpty {
+                    Section {
+                        ForEach(items) { todo in
+                            TodoCardView(
+                                viewModel: viewModel,
+                                todo: todo,
+                                onOpenDetail: { onOpenTodoDetail(todo) },
+                                onDelete: {
+                                    viewModel.beginRowSlideOut(id: todo.id, action: .delete)
+                                }
+                            )
+                            .listRowSeparator(.hidden)
+                            .listRowInsets(EdgeInsets(top: 6, leading: 4, bottom: 6, trailing: 4))
+                            .listRowBackground(Color.clear)
+                        }
+                    } header: {
+                        Text(period.title)
+                            .font(.headline)
+                            .fontWeight(.bold)
+                            .foregroundColor(Color(hex: "#2B5748"))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.leading, 4)
+                            .textCase(nil)
                     }
-                } header: {
-                    Text(period.title)
-                        .font(.headline)
-                        .fontWeight(.bold)
-                        .foregroundColor(Color(hex: "#2B5748"))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.leading, 4)
-                        .textCase(nil)
                 }
             }
         }
         .listStyle(.plain)
-        .listSectionSpacing(14)
+        .listSectionSpacing(TodoCardLayoutMetrics.sectionSpacing)
         .scrollContentBackground(.hidden)
+        .background(TodoPanelCardChrome.background)
+        .environment(\.defaultMinListRowHeight, 1)
+        .environment(\.defaultMinListHeaderHeight, 0)
+    }
+
+    /// 已完成：不分时段，按完成时间排序平铺
+    private func completionSortedTodosList(
+        viewModel: TodoViewModel,
+        todos: [TodoItem],
+        onOpenTodoDetail: @escaping (TodoItem) -> Void
+    ) -> some View {
+        List {
+            ForEach(todos) { todo in
+                TodoCardView(
+                    viewModel: viewModel,
+                    todo: todo,
+                    onOpenDetail: { onOpenTodoDetail(todo) },
+                    onDelete: {
+                        viewModel.beginRowSlideOut(id: todo.id, action: .delete)
+                    }
+                )
+                .listRowSeparator(.hidden)
+                .listRowInsets(EdgeInsets(top: 6, leading: 4, bottom: 6, trailing: 4))
+                .listRowBackground(Color.clear)
+            }
+        }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .background(TodoPanelCardChrome.background)
         .environment(\.defaultMinListRowHeight, 1)
     }
-    
-    // 待办卡片下方：未完成 / 已完成列表切换
+
+    // 待办卡片下方：未完成 / 已完成列表切换（两态同高同轴，水平滑入滑出）
     private var completedListToggleButton: some View {
         Button(action: {
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+            withAnimation(todoCardSlideAnimation) {
                 showCompleted.toggle()
             }
         }) {
-            VStack(spacing: 6) {
-                Image(systemName: "checkmark")
-                    .font(.system(size: 26, weight: .semibold))
-                Text("今日完成")
-                    .font(.system(size: 13, weight: .medium))
+            ZStack {
+                todoToggleButtonContent(icon: "checkmark", title: "今日完成")
+                    .offset(x: showCompleted ? -100 : 0)
+                    .opacity(showCompleted ? 0 : 1)
+
+                todoToggleButtonContent(icon: "list.bullet", title: "今日待办")
+                    .offset(x: showCompleted ? 0 : 100)
+                    .opacity(showCompleted ? 1 : 0)
             }
-            .foregroundColor(Color(hex: "#2B5748"))
             .frame(width: 100, height: 100)
+            .clipped()
             .todoPanelCardChrome()
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(showCompleted ? "查看未完成，今日完成" : "查看今日完成")
+        .accessibilityLabel(showCompleted ? "查看今日待办" : "查看今日完成")
+    }
+
+    private func todoToggleButtonContent(icon: String, title: String) -> some View {
+        VStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 26, weight: .semibold))
+                .frame(width: 28, height: 28)
+            Text(title)
+                .font(.system(size: 13, weight: .medium))
+                .lineLimit(1)
+                .frame(width: 72, height: 16, alignment: .center)
+        }
+        .foregroundColor(Color(hex: "#2B5748"))
+        .frame(width: 100, height: 100, alignment: .center)
     }
     
     var body: some View {
@@ -285,7 +499,7 @@ struct TodoView: View {
                 .navigationTitle("")
                 .navigationBarTitleDisplayMode(.inline)
                 .navigationDestination(item: $detailNavigationTodo) { todo in
-                    TodoDetailView(todo: todo)
+                    TodoDetailView(viewModel: viewModel, todoId: todo.id)
                 }
                 .task {
                     await viewModel.loadTodos()
@@ -318,7 +532,7 @@ enum TodoPanelCardChrome {
 extension View {
     func todoPanelCardChrome(cornerRadius: CGFloat = TodoPanelCardChrome.cornerRadius) -> some View {
         background(TodoPanelCardChrome.background)
-            .cornerRadius(cornerRadius)
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .shadow(
                 color: TodoPanelCardChrome.shadowColor,
                 radius: TodoPanelCardChrome.shadowRadius,
@@ -329,6 +543,34 @@ extension View {
 }
 
 // MARK: - Todo Card View
+private struct TodoRaisedStrikethroughModifier: ViewModifier {
+    let active: Bool
+    var color: Color = Color(hex: "#2B5748")
+    var verticalOffset: CGFloat = TodoRowCardMetrics.strikethroughVerticalOffset
+
+    func body(content: Content) -> some View {
+        content.overlay {
+            if active {
+                GeometryReader { geo in
+                    Capsule()
+                        .fill(color)
+                        .frame(width: geo.size.width, height: TodoRowCardMetrics.strikethroughLineWidth)
+                        .position(
+                            x: geo.size.width / 2,
+                            y: geo.size.height / 2 + verticalOffset
+                        )
+                }
+            }
+        }
+    }
+}
+
+private extension View {
+    func todoRaisedStrikethrough(_ active: Bool, color: Color = Color(hex: "#2B5748")) -> some View {
+        modifier(TodoRaisedStrikethroughModifier(active: active, color: color))
+    }
+}
+
 struct TodoCardView: View {
     @ObservedObject var viewModel: TodoViewModel
     let todo: TodoItem
@@ -359,8 +601,6 @@ struct TodoCardView: View {
         return String(format: "%02d:%02d", m, s)
     }
 
-    /// 已完成卡片细描边
-    private static let gradientBorderLineWidth: CGFloat = 1
     /// 未完成光带（静止 / 计时旋转）更粗的居中描边
     private static let lightBandStrokeLineWidth: CGFloat = 2.35
     private static var lightBandStrokeStyle: StrokeStyle {
@@ -407,24 +647,6 @@ struct TodoCardView: View {
             .stroke(Self.lightBandAngularGradient(angle: .radians(phaseRadians)), style: Self.lightBandStrokeStyle)
     }
 
-    /// 默认：左浅右深的线性描边
-    private var staticLinearBorderOverlay: some View {
-        RoundedRectangle(cornerRadius: 12)
-            .stroke(
-                LinearGradient(
-                    stops: [
-                        .init(color: .clear, location: 0),
-                        .init(color: .clear, location: 0.58),
-                        .init(color: Color(hex: "#215B63").opacity(0.5), location: 0.8),
-                        .init(color: Color(hex: "#215B63"), location: 1.0)
-                    ],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                ),
-                lineWidth: Self.gradientBorderLineWidth
-            )
-    }
-
     @ViewBuilder
     private var trailingAccessory: some View {
         if todo.isCompleted {
@@ -455,29 +677,45 @@ struct TodoCardView: View {
     private var cardChrome: some View {
         ZStack(alignment: .trailing) {
             HStack(alignment: .center, spacing: 10) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Button {
-                        onOpenDetail()
-                    } label: {
-                        Text(todo.title)
-                            .font(.headline)
-                            .foregroundColor(todo.isCompleted ? .secondary : .primary)
-                            .strikethrough(todo.isCompleted)
-                            .multilineTextAlignment(.leading)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                VStack(alignment: .leading, spacing: TodoRowCardMetrics.titleSubtitleSpacing) {
+                    HStack(alignment: .center, spacing: 8) {
+                        Button {
+                            onOpenDetail()
+                        } label: {
+                            Text(todo.title)
+                                .font(.headline)
+                                .foregroundColor(
+                                    todo.isCompleted
+                                        ? Color(hex: "#2B5748")
+                                        : .primary
+                                )
+                                .todoRaisedStrikethrough(todo.isCompleted)
+                                .multilineTextAlignment(.leading)
+                                .lineLimit(2)
+                        }
+                        .buttonStyle(.plain)
+                        .layoutPriority(1)
+
+                        if !todo.isCompleted, let category = todo.taskCategoryLabel {
+                            TodoCategoryCapsule(title: category)
+                        }
                     }
-                    .buttonStyle(.plain)
 
-                    Text(todo.timeSlotDisplayText)
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                        .foregroundColor(Color(hex: "#2B5748"))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-
-                    if todo.isCompleted, let spent = todo.completionDurationDisplayText {
-                        Text(spent)
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
+                    if todo.isCompleted {
+                        if let spent = todo.completionDurationCardSubtitle {
+                            Text(spent)
+                                .font(.system(
+                                    size: TodoRowCardMetrics.completedDurationFontSize,
+                                    weight: .medium
+                                ))
+                                .foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    } else {
+                        Text(todo.timeSlotDisplayText)
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundColor(Color(hex: "#2B5748"))
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
@@ -495,14 +733,14 @@ struct TodoCardView: View {
             )
             .cornerRadius(12)
             .overlay {
-                if todo.isCompleted {
-                    staticLinearBorderOverlay
-                } else if viewModel.isWorkTimerRunning(todoId: todo.id) {
-                    runningTimerBorderOverlay
-                } else if let phase = viewModel.pausedLightBandPhaseRadians(todoId: todo.id) {
-                    pausedLightBandBorderOverlay(phaseRadians: phase)
-                } else {
-                    idleLightBandBorderOverlay
+                if !todo.isCompleted {
+                    if viewModel.isWorkTimerRunning(todoId: todo.id) {
+                        runningTimerBorderOverlay
+                    } else if let phase = viewModel.pausedLightBandPhaseRadians(todoId: todo.id) {
+                        pausedLightBandBorderOverlay(phaseRadians: phase)
+                    } else {
+                        idleLightBandBorderOverlay
+                    }
                 }
             }
             .shadow(color: Color(hex: "#1b4332").opacity(0.22), radius: 4, x: 0, y: 2)
@@ -618,7 +856,13 @@ class TodoViewModel: ObservableObject {
     }
     
     var completedTodos: [TodoItem] {
-        todos.filter { $0.isCompleted }
+        todos
+            .filter(\.isCompleted)
+            .sorted { lhs, rhs in
+                let left = lhs.completedDate ?? lhs.createdAt
+                let right = rhs.completedDate ?? rhs.createdAt
+                return left > right
+            }
     }
     
     func loadTodos() async {
@@ -628,10 +872,10 @@ class TodoViewModel: ObservableObject {
         let twoDaysAgo = calendar.date(byAdding: .day, value: -2, to: today) ?? today
 
         todos = [
-            TodoItem(id: 1, title: "完成项目文档", description: "编写项目说明文档", isCompleted: false, createdAt: today, completedDate: nil, completionDurationSeconds: nil, timeSlotStartHour: 9, timeSlotEndHour: 12),
-            TodoItem(id: 2, title: "代码审查", description: "审查团队代码", isCompleted: true, createdAt: yesterday, completedDate: yesterday, completionDurationSeconds: 86_400, timeSlotStartHour: 0, timeSlotEndHour: 1),
-            TodoItem(id: 3, title: "准备会议", description: nil, isCompleted: false, createdAt: today, completedDate: nil, completionDurationSeconds: nil, timeSlotStartHour: 14, timeSlotEndHour: 17),
-            TodoItem(id: 4, title: "晚间复盘", description: nil, isCompleted: false, createdAt: twoDaysAgo, completedDate: nil, completionDurationSeconds: nil, timeSlotStartHour: 20, timeSlotEndHour: 22)
+            TodoItem(id: 1, title: "完成项目文档", description: "编写项目说明文档", isCompleted: false, status: .notStarted, priority: .p1, createdAt: today, completedDate: nil, completionDurationSeconds: nil, timeSlotStartHour: 9, timeSlotEndHour: 12, taskCategoryId: TodoLifeCategoryCatalog.outfitCategoryId),
+            TodoItem(id: 2, title: "代码审查", description: "审查团队代码", isCompleted: true, status: .completed, priority: .p2, createdAt: yesterday, completedDate: yesterday, completionDurationSeconds: 120, timeSlotStartHour: 0, timeSlotEndHour: 1, taskCategoryId: TodoLifeCategoryCatalog.outfitCategoryId),
+            TodoItem(id: 3, title: "准备会议", description: nil, isCompleted: false, status: .inProgress, priority: .p3, createdAt: today, completedDate: nil, completionDurationSeconds: nil, timeSlotStartHour: 14, timeSlotEndHour: 17, taskCategoryId: TodoLifeCategoryCatalog.outfitCategoryId),
+            TodoItem(id: 4, title: "晚间复盘", description: nil, isCompleted: false, status: .paused, priority: .p4, createdAt: twoDaysAgo, completedDate: nil, completionDurationSeconds: nil, timeSlotStartHour: 20, timeSlotEndHour: 22, taskCategoryId: TodoLifeCategoryCatalog.outfitCategoryId)
         ]
     }
 
@@ -650,6 +894,7 @@ class TodoViewModel: ObservableObject {
             title: title,
             description: description,
             isCompleted: false,
+            status: .notStarted,
             createdAt: Date(),
             completedDate: nil,
             completionDurationSeconds: nil,
@@ -659,7 +904,20 @@ class TodoViewModel: ObservableObject {
             timeSlotEndMinute: timeSlotEndMinute,
             taskCategoryId: taskCategoryId
         )
-        todos.append(item)
+        let willGrowActiveCard = todos.filter { !$0.isCompleted }.isEmpty
+        if willGrowActiveCard {
+            withAnimation(TodoCardMotion.grow) {
+                todos.append(item)
+            }
+        } else {
+            todos.append(item)
+        }
+    }
+
+    func updateTodoDescription(id: Int, description: String) {
+        guard let index = todos.firstIndex(where: { $0.id == id }) else { return }
+        let trimmed = description.trimmingCharacters(in: .whitespacesAndNewlines)
+        todos[index].description = trimmed.isEmpty ? nil : description
     }
     
     func toggleTodo(_ id: Int) async {
@@ -678,17 +936,20 @@ class TodoViewModel: ObservableObject {
             let now = Date()
             let todoId = todos[index].id
             let workSeconds = consumeWorkTimerForCompletion(todoId: todoId)
-            let duration = workSeconds > 0
-                ? workSeconds
-                : max(0, Int(now.timeIntervalSince(todos[index].createdAt)))
+            let duration = todos[index].resolvedCompletionDurationSeconds(timerSeconds: workSeconds)
             todos[index].completedDate = now
             todos[index].completionDurationSeconds = duration
-            if todos[index].taskCategoryId == TodoTaskCategoryCatalog.outfitCategoryId {
+            todos[index].status = .completed
+            if todos[index].taskCategoryId == TodoLifeCategoryCatalog.outfitCategoryId {
                 OutfitResearchTimeStore.add(seconds: TimeInterval(duration))
             }
         } else {
             todos[index].completedDate = nil
             todos[index].completionDurationSeconds = nil
+            let todoId = todos[index].id
+            let workState = activeWorkByTodoId[todoId]
+            let hasPausedWork = (workState?.accumulated ?? 0) > 0.5 || workState?.pausedLightBandPhaseRadians != nil
+            todos[index].status = hasPausedWork ? .paused : .notStarted
         }
     }
 
@@ -719,11 +980,16 @@ class TodoViewModel: ObservableObject {
     }
 
     private func finishRowSlideOut(id: Int, action: RowSlideOutAction) {
-        var t = Transaction()
-        t.disablesAnimations = true
-        withTransaction(t) {
+        let cardMotion = cardHeightMotion(after: action, id: id)
+
+        var cleanup = Transaction()
+        cleanup.disablesAnimations = true
+        withTransaction(cleanup) {
             slidingOutIds = slidingOutIds.subtracting([id])
             slideOutSignById = slideOutSignById.filter { $0.key != id }
+        }
+
+        let applyMutation = { [self] in
             switch action {
             case .delete:
                 activeWorkByTodoId[id] = nil
@@ -731,6 +997,38 @@ class TodoViewModel: ObservableObject {
             case .markComplete, .markIncomplete:
                 applyToggleTodo(id)
             }
+        }
+
+        switch cardMotion {
+        case .shrink:
+            withAnimation(TodoCardMotion.shrink, applyMutation)
+        case .none:
+            var mutation = Transaction()
+            mutation.disablesAnimations = true
+            withTransaction(mutation, applyMutation)
+        }
+    }
+
+    private enum CardHeightMotion {
+        case shrink
+        case none
+    }
+
+    /// 数据源变更后，当前列表是否会在「有待办 ↔ 无待办」两档高度间切换
+    private func cardHeightMotion(after action: RowSlideOutAction, id: Int) -> CardHeightMotion {
+        switch action {
+        case .delete:
+            guard let todo = todos.first(where: { $0.id == id }) else { return .none }
+            if todo.isCompleted {
+                return todos.filter(\.isCompleted).count == 1 ? .shrink : .none
+            }
+            return todos.filter { !$0.isCompleted }.count == 1 ? .shrink : .none
+        case .markComplete:
+            guard todos.contains(where: { $0.id == id && !$0.isCompleted }) else { return .none }
+            return todos.filter { !$0.isCompleted }.count == 1 ? .shrink : .none
+        case .markIncomplete:
+            guard todos.contains(where: { $0.id == id && $0.isCompleted }) else { return .none }
+            return todos.filter(\.isCompleted).count == 1 ? .shrink : .none
         }
     }
 
@@ -754,6 +1052,9 @@ class TodoViewModel: ObservableObject {
             state.pausedLightBandPhaseRadians = nil
         }
         activeWorkByTodoId[todoId] = state
+        if let index = todos.firstIndex(where: { $0.id == todoId }) {
+            todos[index].status = state.runningSince == nil ? .paused : .inProgress
+        }
     }
 
     func isWorkTimerRunning(todoId: Int) -> Bool {
@@ -797,11 +1098,40 @@ class TodoViewModel: ObservableObject {
 }
 
 // MARK: - Todo Model
+enum TodoWorkStatus: String, Codable, CaseIterable, Hashable {
+    case notStarted
+    case inProgress
+    case paused
+    case completed
+
+    var displayName: String {
+        switch self {
+        case .notStarted: return "未开始"
+        case .inProgress: return "进行中"
+        case .paused: return "暂停"
+        case .completed: return "已完成"
+        }
+    }
+}
+
+enum TodoPriority: String, Codable, CaseIterable, Hashable {
+    case p1
+    case p2
+    case p3
+    case p4
+
+    var displayName: String {
+        rawValue.uppercased()
+    }
+}
+
 struct TodoItem: Identifiable, Codable, Hashable {
     let id: Int
     var title: String
     var description: String?
     var isCompleted: Bool
+    var status: TodoWorkStatus
+    var priority: TodoPriority
     /// 创建时间
     var createdAt: Date
     var completedDate: Date?
@@ -815,11 +1145,11 @@ struct TodoItem: Identifiable, Codable, Hashable {
     var timeSlotEndHour: Int
     /// 结束分钟 0–59（`timeSlotEndHour == 24` 时忽略，视为 0）
     var timeSlotEndMinute: Int
-    /// 待办分类 ID，对应 `TodoTaskCategoryCatalog`
+    /// 待办分类 ID，对应 `TodoLifeCategoryCatalog`
     var taskCategoryId: Int?
 
     enum CodingKeys: String, CodingKey {
-        case id, title, description, isCompleted, createdAt, completedDate
+        case id, title, description, isCompleted, status, priority, createdAt, completedDate
         case completionDurationSeconds
         case timeSlotStartHour, timeSlotStartMinute, timeSlotEndHour, timeSlotEndMinute
         case taskCategoryId
@@ -830,6 +1160,8 @@ struct TodoItem: Identifiable, Codable, Hashable {
         title: String,
         description: String?,
         isCompleted: Bool,
+        status: TodoWorkStatus = .notStarted,
+        priority: TodoPriority = .p3,
         createdAt: Date,
         completedDate: Date?,
         completionDurationSeconds: Int? = nil,
@@ -843,6 +1175,8 @@ struct TodoItem: Identifiable, Codable, Hashable {
         self.title = title
         self.description = description
         self.isCompleted = isCompleted
+        self.status = isCompleted ? .completed : status
+        self.priority = priority
         self.createdAt = createdAt
         self.completedDate = completedDate
         self.completionDurationSeconds = completionDurationSeconds
@@ -859,6 +1193,9 @@ struct TodoItem: Identifiable, Codable, Hashable {
         title = try container.decode(String.self, forKey: .title)
         description = try container.decodeIfPresent(String.self, forKey: .description)
         isCompleted = try container.decode(Bool.self, forKey: .isCompleted)
+        status = try container.decodeIfPresent(TodoWorkStatus.self, forKey: .status)
+            ?? (isCompleted ? .completed : .notStarted)
+        priority = try container.decodeIfPresent(TodoPriority.self, forKey: .priority) ?? .p3
         createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
         completedDate = try container.decodeIfPresent(Date.self, forKey: .completedDate)
         completionDurationSeconds = try container.decodeIfPresent(Int.self, forKey: .completionDurationSeconds)
@@ -875,6 +1212,8 @@ struct TodoItem: Identifiable, Codable, Hashable {
         try container.encode(title, forKey: .title)
         try container.encodeIfPresent(description, forKey: .description)
         try container.encode(isCompleted, forKey: .isCompleted)
+        try container.encode(status, forKey: .status)
+        try container.encode(priority, forKey: .priority)
         try container.encode(createdAt, forKey: .createdAt)
         try container.encodeIfPresent(completedDate, forKey: .completedDate)
         try container.encodeIfPresent(completionDurationSeconds, forKey: .completionDurationSeconds)
@@ -944,7 +1283,107 @@ extension TodoItem {
         return "\(c.sh):\(p(c.sm)) - \(c.eh):\(p(c.em))"
     }
 
-    /// 完成耗时展示文案，未完成或无数据时为 `nil`
+    var timeSlotStartDisplayText: String {
+        let c = normalizedTimeSlotHM
+        return String(format: "%02d:%02d", c.sh, c.sm)
+    }
+
+    var timeSlotEndDisplayText: String {
+        let c = normalizedTimeSlotHM
+        if c.eh == 24 { return "24:00" }
+        return String(format: "%02d:%02d", c.eh, c.em)
+    }
+
+    /// 计划时段时长文案，如「3 小时」
+    var timeSlotDurationDisplayText: String {
+        Self.durationDisplayText(seconds: timeSlotDurationSeconds)
+    }
+
+    /// 投入时长文案（已完成取记录；未完成取计时器累计）
+    func investedDurationDisplayText(liveTimerSeconds: Int) -> String {
+        if isCompleted, let sec = completionDurationSeconds, sec >= 0 {
+            return Self.durationDisplayText(seconds: sec)
+        }
+        if liveTimerSeconds > 0 {
+            return Self.durationDisplayText(seconds: liveTimerSeconds)
+        }
+        return "0 分钟"
+    }
+
+    static func durationDisplayText(seconds: Int) -> String {
+        if seconds < 60 { return "\(seconds) 秒" }
+        if seconds < 3600 {
+            let m = seconds / 60
+            return m == 1 ? "1 分钟" : "\(m) 分钟"
+        }
+        let h = seconds / 3600
+        let m = (seconds % 3600) / 60
+        if m == 0 { return h == 1 ? "1 小时" : "\(h) 小时" }
+        return "\(h) 小时 \(m) 分钟"
+    }
+
+    /// 详情页：创建日期 yyyy-MM-dd
+    var createdDateOnlyDisplayText: String {
+        TodoDetailDateFormatting.dateOnly.string(from: createdAt)
+    }
+
+    /// 详情页：计划日期 yyyy-MM-dd
+    var plannedDateOnlyDisplayText: String {
+        createdDateOnlyDisplayText
+    }
+
+    /// 计划时间段的总时长（秒）
+    var timeSlotDurationSeconds: Int {
+        let c = normalizedTimeSlotHM
+        let startMin = c.sh * 60 + c.sm
+        let endMin = c.eh == 24 ? 24 * 60 : c.eh * 60 + c.em
+        return max(0, (endMin - startMin) * 60)
+    }
+
+    /// 完成用时：优先计时器累计；未计时时取计划时间段全长
+    func resolvedCompletionDurationSeconds(timerSeconds: Int) -> Int {
+        if timerSeconds > 0 {
+            return timerSeconds
+        }
+        return timeSlotDurationSeconds
+    }
+
+    /// 待办关联的生活分类名称，如「穿搭」
+    var taskCategoryLabel: String? {
+        guard let id = taskCategoryId else { return nil }
+        return TodoLifeCategoryCatalog.option(for: id)?.title
+    }
+
+    /// 列表已完成卡片副标题：已用时：2 分钟
+    var completionDurationCardSubtitle: String? {
+        guard let text = completionDurationDisplayText else { return nil }
+        let body = text.replacingOccurrences(of: "用时 ", with: "")
+        return "已用时：\(body)"
+    }
+
+    /// 卡片/详情用紧凑用时：3h、45m、30s、2d 等
+    var completionDurationCompactText: String? {
+        guard isCompleted, let sec = completionDurationSeconds, sec >= 0 else { return nil }
+        if sec < 60 {
+            return "\(sec)s"
+        }
+        if sec < 3600 {
+            let m = sec / 60
+            let s = sec % 60
+            return s == 0 ? "\(m)m" : "\(m)m\(s)s"
+        }
+        if sec < 86_400 {
+            let h = sec / 3600
+            let m = (sec % 3600) / 60
+            return m == 0 ? "\(h)h" : "\(h)h\(m)m"
+        }
+        let d = sec / 86_400
+        let rem = sec % 86_400
+        let h = rem / 3600
+        return h == 0 ? "\(d)d" : "\(d)d\(h)h"
+    }
+
+    /// 完成耗时展示文案（详情等完整句式），未完成或无数据时为 `nil`
     var completionDurationDisplayText: String? {
         guard isCompleted, let sec = completionDurationSeconds, sec >= 0 else { return nil }
         if sec < 60 {
@@ -968,28 +1407,6 @@ extension TodoItem {
         }
         return "用时 \(d) 天 \(h) 小时"
     }
-}
-
-// MARK: - 待办任务分类（暂定本地类目）
-private struct TodoTaskCategory: Identifiable, Hashable {
-    let id: Int
-    let name: String
-    let icon: String
-}
-
-private enum TodoTaskCategoryCatalog {
-    static let all: [TodoTaskCategory] = [
-        TodoTaskCategory(id: 1, name: "工作", icon: "briefcase"),
-        TodoTaskCategory(id: 2, name: "学习", icon: "book"),
-        TodoTaskCategory(id: 3, name: "生活", icon: "house"),
-        TodoTaskCategory(id: 4, name: "健康", icon: "heart"),
-        TodoTaskCategory(id: 5, name: "财务", icon: "yensign.circle"),
-        TodoTaskCategory(id: 6, name: "社交", icon: "person.2"),
-        TodoTaskCategory(id: 7, name: "其他", icon: "ellipsis.circle"),
-        TodoTaskCategory(id: OutfitTodoCategory.outfitTaskCategoryId, name: "穿搭", icon: "tshirt")
-    ]
-
-    static var outfitCategoryId: Int { OutfitTodoCategory.outfitTaskCategoryId }
 }
 
 private enum AddTodoFormMode: String, CaseIterable, Identifiable {
@@ -1024,7 +1441,7 @@ private struct AddTodoSheet: View {
     var panelExpanded: Bool
     let onDismiss: () -> Void
     @State private var formMode: AddTodoFormMode = .task
-    @State private var selectedCategoryId: Int = TodoTaskCategoryCatalog.all[0].id
+    @State private var selectedCategoryId: Int = TodoLifeCategoryCatalog.available[0].taskCategoryId
     @State private var titleText = ""
     @State private var descriptionText = ""
     @State private var startTime: Date
@@ -1086,7 +1503,7 @@ private struct AddTodoSheet: View {
         showsEndTime = false
         showsDuration = false
         expandedTimeField = nil
-        selectedCategoryId = TodoTaskCategoryCatalog.all[0].id
+        selectedCategoryId = TodoLifeCategoryCatalog.available[0].taskCategoryId
         formMode = .task
         titleText = ""
         descriptionText = ""
@@ -1230,17 +1647,17 @@ private struct AddTodoSheet: View {
     private var categoryPickerSection: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                ForEach(TodoTaskCategoryCatalog.all) { category in
-                    let isSelected = selectedCategoryId == category.id
+                ForEach(TodoLifeCategoryCatalog.available) { category in
+                    let isSelected = selectedCategoryId == category.taskCategoryId
                     Button {
                         withAnimation(.easeInOut(duration: 0.15)) {
-                            selectedCategoryId = category.id
+                            selectedCategoryId = category.taskCategoryId
                         }
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: category.icon)
                                 .font(.caption.weight(.semibold))
-                            Text(category.name)
+                            Text(category.title)
                                 .font(.subheadline)
                         }
                         .foregroundStyle(isSelected ? MindFlowFormSheetStyle.accent : Color.secondary)
@@ -1564,8 +1981,578 @@ private struct AddTodoSheet: View {
 }
 
 // MARK: - 待办详情（轻触标题进入）
-struct TodoDetailView: View {
+private struct TodoCategoryCapsule: View {
+    let title: String
+
+    var body: some View {
+        Text(title)
+            .font(.system(size: TodoRowCardMetrics.categoryCapsuleFontSize, weight: .semibold))
+            .foregroundColor(Color(hex: "#2B5748"))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(
+                Capsule(style: .continuous)
+                    .strokeBorder(Color(hex: "#2B5748").opacity(0.32), lineWidth: 1)
+            )
+            .fixedSize()
+    }
+}
+
+private enum TodoDetailDateFormatting {
+    static let dateOnly: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "zh_CN")
+        return f
+    }()
+}
+
+private struct TodoDetailDashedDivider: View {
+    var body: some View {
+        GeometryReader { geo in
+            Path { path in
+                path.move(to: CGPoint(x: 0, y: 0.5))
+                path.addLine(to: CGPoint(x: geo.size.width, y: 0.5))
+            }
+            .stroke(
+                Color(hex: "#2B5748").opacity(0.22),
+                style: StrokeStyle(lineWidth: 1, dash: [4, 4])
+            )
+        }
+        .frame(height: 1)
+    }
+}
+
+private struct TodoDetailVerticalDashedDivider: View {
+    var verticalPadding: CGFloat = 10
+
+    var body: some View {
+        Rectangle()
+            .fill(Color.clear)
+            .frame(width: 1)
+            .overlay {
+                GeometryReader { geometry in
+                    Path { path in
+                        path.move(to: CGPoint(x: 0.5, y: 0))
+                        path.addLine(to: CGPoint(x: 0.5, y: geometry.size.height))
+                    }
+                    .stroke(
+                        Color(hex: "#2B5748").opacity(0.22),
+                        style: StrokeStyle(lineWidth: 1, dash: [4, 4])
+                    )
+                }
+            }
+            .padding(.vertical, verticalPadding)
+    }
+}
+
+private struct TodoDetailTitleCard: View {
     let todo: TodoItem
+
+    var body: some View {
+        Text(todo.title)
+            .font(.headline.weight(.semibold))
+            .foregroundColor(Color(hex: "#2B5748"))
+            .todoRaisedStrikethrough(todo.isCompleted)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity, minHeight: TodoRowCardMetrics.detailInlineCardMinHeight, alignment: .center)
+            .padding(.horizontal, 16)
+            .padding(.vertical, TodoRowCardMetrics.detailInlineCardVerticalPadding)
+            .todoPanelCardChrome()
+    }
+}
+
+private struct TodoDetailTimeValueCapsule: View {
+    let text: String
+    var lineLimit: Int = 1
+
+    var body: some View {
+        Text(text)
+            .font(.headline.weight(.semibold))
+            .foregroundStyle(.white)
+            .multilineTextAlignment(.center)
+            .lineLimit(lineLimit)
+            .minimumScaleFactor(0.75)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(TodoRowCardMetrics.detailTimeCapsuleFillColor)
+            )
+            .fixedSize(horizontal: lineLimit == 1, vertical: true)
+    }
+}
+
+private enum TodoDetailNoteLineLayout {
+    private static var noteUIFont: UIFont {
+        let base = UIFont.preferredFont(forTextStyle: .subheadline)
+        let descriptor = base.fontDescriptor.withSymbolicTraits(.traitBold) ?? base.fontDescriptor
+        let bold = UIFont(descriptor: descriptor, size: base.pointSize)
+        return UIFontMetrics(forTextStyle: .subheadline).scaledFont(for: bold)
+    }
+
+    static func availableTextWidth(containerWidth: CGFloat) -> CGFloat {
+        let raw = containerWidth - TodoRowCardMetrics.detailNoteInputHorizontalPadding * 2
+        return max(0, raw - TodoRowCardMetrics.detailNoteInputWidthSafetyMargin)
+    }
+
+    static func textWidth(_ text: String) -> CGFloat {
+        guard !text.isEmpty else { return 0 }
+        return ceil((text as NSString).size(withAttributes: [.font: noteUIFont]).width)
+    }
+
+    static func fitsSingleLine(_ text: String, containerWidth: CGFloat) -> Bool {
+        let available = availableTextWidth(containerWidth: containerWidth)
+        guard available > 0 else { return true }
+        if text.isEmpty { return true }
+        return textWidth(text) <= available
+    }
+
+    static func splitOverflow(_ text: String, containerWidth: CGFloat) -> (head: String, tail: String) {
+        let available = availableTextWidth(containerWidth: containerWidth)
+        guard available > 0, !text.isEmpty else { return (text, "") }
+
+        if fitsSingleLine(text, containerWidth: containerWidth) {
+            return (text, "")
+        }
+
+        var lo = 0
+        var hi = text.count
+        while lo < hi {
+            let mid = (lo + hi + 1) / 2
+            let prefix = String(text.prefix(mid))
+            if textWidth(prefix) <= available {
+                lo = mid
+            } else {
+                hi = mid - 1
+            }
+        }
+        if lo == 0 {
+            return (String(text.prefix(1)), String(text.dropFirst(1)))
+        }
+        return (String(text.prefix(lo)), String(text.dropFirst(lo)))
+    }
+
+    static func reflowLines(_ lines: [String], containerWidth: CGFloat) -> [String] {
+        guard containerWidth > 0 else { return lines.isEmpty ? [""] : lines }
+
+        let source = lines.joined(separator: "\n")
+        if source.isEmpty { return [""] }
+
+        var result: [String] = []
+        var remainder = source
+        while !remainder.isEmpty {
+            if fitsSingleLine(remainder, containerWidth: containerWidth) {
+                result.append(remainder)
+                break
+            }
+            let (head, tail) = splitOverflow(remainder, containerWidth: containerWidth)
+            result.append(head)
+            remainder = tail
+        }
+        return result.isEmpty ? [""] : result
+    }
+}
+
+private struct TodoDetailNoteInputField: View {
+    @Binding var text: String
+    let lineIndex: Int
+    @FocusState.Binding var focusedLineIndex: Int?
+    var showsTopBorder: Bool = true
+    var showsBottomBorder: Bool = true
+    var placeholder: String = "轻触输入备注…"
+
+    private var borderColor: Color {
+        Color(hex: "#2B5748").opacity(0.22)
+    }
+
+    var body: some View {
+        TextField(placeholder, text: $text)
+            .font(TodoRowCardMetrics.detailNoteContentFont)
+            .foregroundColor(Color(hex: "#2B5748"))
+            .textFieldStyle(.plain)
+            .focused($focusedLineIndex, equals: lineIndex)
+            .submitLabel(.next)
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .padding(.horizontal, TodoRowCardMetrics.detailNoteInputHorizontalPadding)
+            .padding(.vertical, TodoRowCardMetrics.detailNoteInputVerticalPadding)
+            .frame(maxWidth: .infinity, minHeight: TodoRowCardMetrics.detailNoteInputMinHeight, alignment: .leading)
+            .overlay(alignment: .top) {
+                if showsTopBorder {
+                    Rectangle()
+                        .fill(borderColor)
+                        .frame(height: 1)
+                }
+            }
+            .overlay(alignment: .bottom) {
+                if showsBottomBorder {
+                    Rectangle()
+                        .fill(borderColor)
+                        .frame(height: 1)
+                }
+            }
+            .contentShape(Rectangle())
+            .onTapGesture { focusedLineIndex = lineIndex }
+    }
+}
+
+private struct TodoDetailNoteCard: View {
+    @Binding var text: String
+    @State private var lines: [String] = [""]
+    @State private var containerWidth: CGFloat = 0
+    @FocusState private var focusedLineIndex: Int?
+
+    var body: some View {
+        VStack(spacing: TodoRowCardMetrics.detailNoteTitleToInputSpacing) {
+            Text("备注")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(MindFlowFormSheetStyle.accent)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.top, TodoRowCardMetrics.detailNoteTitleTopPadding)
+
+            VStack(spacing: 0) {
+                ForEach(Array(lines.enumerated()), id: \.offset) { index, _ in
+                    TodoDetailNoteInputField(
+                        text: lineBinding(at: index),
+                        lineIndex: index,
+                        focusedLineIndex: $focusedLineIndex,
+                        showsTopBorder: index == 0,
+                        showsBottomBorder: true,
+                        placeholder: index == 0 ? "轻触输入备注…" : ""
+                    )
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .animation(TodoRowCardMetrics.detailNoteExpandAnimation, value: lines.count)
+            .padding(.top, TodoRowCardMetrics.detailNoteInputVerticalOffset)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 16)
+            .onGeometryChange(for: CGFloat.self) { geometry in
+                geometry.size.width
+            } action: { newWidth in
+                guard newWidth > 0, newWidth != containerWidth else { return }
+                containerWidth = newWidth
+                reflowAllLines()
+            }
+        }
+        .padding(.bottom, TodoRowCardMetrics.detailInlineCardVerticalPadding)
+        .frame(maxWidth: .infinity)
+        .todoPanelCardChrome()
+        .onAppear {
+            syncLinesFromText()
+            if containerWidth > 0 {
+                reflowAllLines()
+            }
+        }
+        .onChange(of: text) { _, newValue in
+            let joined = lines.joined(separator: "\n")
+            if joined != newValue {
+                syncLinesFromText()
+            }
+        }
+    }
+
+    private func lineBinding(at index: Int) -> Binding<String> {
+        Binding(
+            get: {
+                guard index < lines.count else { return "" }
+                return lines[index]
+            },
+            set: { newValue in
+                updateLine(at: index, to: newValue)
+            }
+        )
+    }
+
+    private func syncLinesFromText() {
+        if text.isEmpty {
+            lines = [""]
+        } else {
+            let split = text.components(separatedBy: "\n")
+            lines = split.isEmpty ? [""] : split
+        }
+        if containerWidth > 0 {
+            reflowAllLines()
+        }
+    }
+
+    private func reflowAllLines() {
+        guard containerWidth > 0 else { return }
+        let reflowed = TodoDetailNoteLineLayout.reflowLines(lines, containerWidth: containerWidth)
+        if reflowed != lines {
+            lines = reflowed
+            commitLines()
+        }
+    }
+
+    private func commitLines() {
+        let joined = lines.joined(separator: "\n")
+        if joined != text {
+            text = joined
+        }
+    }
+
+    private func updateLine(at index: Int, to newValue: String) {
+        guard index < lines.count else { return }
+
+        if newValue.isEmpty, index > 0, lines.count > 1 {
+            withAnimation(TodoRowCardMetrics.detailNoteExpandAnimation) {
+                lines.remove(at: index)
+            }
+            commitLines()
+            return
+        }
+
+        guard containerWidth > 0 else {
+            lines[index] = newValue
+            commitLines()
+            return
+        }
+
+        if TodoDetailNoteLineLayout.fitsSingleLine(newValue, containerWidth: containerWidth) {
+            lines[index] = newValue
+            commitLines()
+            return
+        }
+
+        let (head, tail) = TodoDetailNoteLineLayout.splitOverflow(newValue, containerWidth: containerWidth)
+        lines[index] = head
+
+        guard !tail.isEmpty else {
+            commitLines()
+            return
+        }
+
+        if index + 1 < lines.count {
+            lines[index + 1] = tail + lines[index + 1]
+        } else {
+            withAnimation(TodoRowCardMetrics.detailNoteExpandAnimation) {
+                lines.append(tail)
+            }
+            focusedLineIndex = index + 1
+        }
+
+        if index + 1 < lines.count,
+           !TodoDetailNoteLineLayout.fitsSingleLine(lines[index + 1], containerWidth: containerWidth) {
+            let overflow = lines[index + 1]
+            updateLine(at: index + 1, to: overflow)
+        }
+
+        commitLines()
+    }
+}
+
+private struct TodoDetailTimeScheduleRow: View {
+    let title: String
+    let dateText: String
+    let slotText: String
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 0) {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(MindFlowFormSheetStyle.accent)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, TodoRowCardMetrics.detailTimeRowTitleHorizontalInset)
+                .frame(width: TodoRowCardMetrics.detailTimeRowTitleWidth, alignment: .center)
+
+            TodoDetailVerticalDashedDivider(verticalPadding: 4)
+
+            HStack(alignment: .center, spacing: 0) {
+                TodoDetailTimeValueCapsule(text: dateText)
+                    .frame(width: TodoRowCardMetrics.detailTimeRowDateWidth, alignment: .center)
+
+                Color.clear
+                    .frame(width: TodoRowCardMetrics.detailTimeRowDateToSlotSpacing)
+
+                TodoDetailTimeValueCapsule(text: slotText, lineLimit: 2)
+                    .frame(width: TodoRowCardMetrics.detailTimeRowSlotWidth, alignment: .center)
+
+                Spacer(minLength: 0)
+            }
+            .padding(.leading, TodoRowCardMetrics.detailTimeRowDateSlotGroupOffset)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(minHeight: TodoRowCardMetrics.detailTimeRowHeight)
+    }
+}
+
+private struct TodoDetailTimeScheduleCard: View {
+    let plannedDateText: String
+    let plannedSlotText: String
+    let startDateText: String
+    let startSlotText: String
+    let endDateText: String
+    let endSlotText: String
+
+    var body: some View {
+        VStack(spacing: 0) {
+            TodoDetailTimeScheduleRow(
+                title: "开始时间",
+                dateText: startDateText,
+                slotText: startSlotText
+            )
+
+            TodoDetailDashedDivider()
+                .padding(.vertical, 8)
+
+            TodoDetailTimeScheduleRow(
+                title: "结束时间",
+                dateText: endDateText,
+                slotText: endSlotText
+            )
+
+            TodoDetailDashedDivider()
+                .padding(.vertical, 8)
+
+            TodoDetailTimeScheduleRow(
+                title: "计划时间",
+                dateText: plannedDateText,
+                slotText: plannedSlotText
+            )
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .todoPanelCardChrome()
+    }
+}
+
+private struct TodoDetailMetaChip: View {
+    let title: String
+    let value: String
+    var uniformTypography: Bool = false
+    var usesProportionalVerticalLayout: Bool = false
+    var usesCompactTypography: Bool = false
+
+    private var titleFont: Font {
+        if usesProportionalVerticalLayout {
+            if usesCompactTypography { return .caption.weight(.semibold) }
+            return .subheadline.weight(.semibold)
+        }
+        return uniformTypography ? .headline.weight(.semibold) : .caption.weight(.semibold)
+    }
+
+    private var titleColor: Color {
+        if usesProportionalVerticalLayout {
+            return Color.secondary
+        }
+        return uniformTypography ? MindFlowFormSheetStyle.accent : Color.secondary
+    }
+
+    private var valueFont: Font {
+        if usesProportionalVerticalLayout {
+            if usesCompactTypography { return .subheadline.weight(.semibold) }
+            return .title3.weight(.semibold)
+        }
+        return .headline.weight(.semibold)
+    }
+
+    var body: some View {
+        Group {
+            if usesProportionalVerticalLayout {
+                GeometryReader { geometry in
+                    let verticalOffset = TodoRowCardMetrics.detailMetaChipVerticalOffset
+                    ZStack {
+                        Text(title)
+                            .font(titleFont)
+                            .foregroundStyle(titleColor)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                            .position(
+                                x: geometry.size.width / 2,
+                                y: geometry.size.height / 3 + verticalOffset
+                            )
+
+                        Text(value)
+                            .font(valueFont)
+                            .foregroundStyle(MindFlowFormSheetStyle.accent)
+                            .multilineTextAlignment(.center)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.75)
+                            .position(
+                                x: geometry.size.width / 2,
+                                y: geometry.size.height * 2 / 3 + verticalOffset
+                            )
+                    }
+                }
+            } else {
+                ZStack {
+                    Text(value)
+                        .font(valueFont)
+                        .foregroundStyle(MindFlowFormSheetStyle.accent)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.75)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+
+                    VStack(spacing: 0) {
+                        Text(title)
+                            .font(titleFont)
+                            .foregroundStyle(titleColor)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, TodoRowCardMetrics.detailMetaChipTopPadding)
+                        Spacer(minLength: 0)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, 8)
+        .frame(maxWidth: .infinity)
+        .frame(height: TodoRowCardMetrics.detailMetaRowCardHeight)
+        .todoPanelCardChrome()
+    }
+}
+
+private struct TodoDetailInfoCard: View {
+    let title: String
+    let value: String
+    var icon: String? = nil
+    var valueFont: Font = .headline.weight(.semibold)
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(MindFlowFormSheetStyle.accent)
+
+            HStack(spacing: 6) {
+                if let icon {
+                    Image(systemName: icon)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(Color(hex: "#2B5748"))
+                }
+                Text(value)
+                    .font(valueFont)
+                    .foregroundColor(Color(hex: "#2B5748"))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .todoPanelCardChrome()
+    }
+}
+
+struct TodoDetailView: View {
+    @ObservedObject var viewModel: TodoViewModel
+    let todoId: Int
+
+    private var todo: TodoItem? {
+        viewModel.todos.first(where: { $0.id == todoId })
+    }
+
+    private var noteBinding: Binding<String> {
+        Binding(
+            get: { todo?.description ?? "" },
+            set: { viewModel.updateTodoDescription(id: todoId, description: $0) }
+        )
+    }
 
     private static let detailDateFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -1576,71 +2563,103 @@ struct TodoDetailView: View {
     }()
 
     var body: some View {
+        if let todo {
+            detailContent(for: todo)
+        } else {
+            Color.clear
+        }
+    }
+
+    @ViewBuilder
+    private func detailContent(for todo: TodoItem) -> some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                Text(todo.title)
-                    .font(.title2.weight(.bold))
-                    .foregroundColor(Color(hex: "#2B5748"))
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: 16) {
+                TodoDetailTitleCard(todo: todo)
+                    .padding(.horizontal, 20)
 
-                Label {
-                    Text(todo.timeSlotDisplayText)
-                        .font(.subheadline)
-                        .foregroundColor(Color(hex: "#2B5748"))
-                } icon: {
-                    Image(systemName: "clock")
-                        .foregroundColor(Color(hex: "#2B5748"))
-                }
+                TodoDetailNoteCard(text: noteBinding)
+                    .padding(.horizontal, 20)
 
-                if let desc = todo.description, !desc.isEmpty {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("备注")
-                            .font(.caption.weight(.semibold))
-                            .foregroundColor(.secondary)
-                        Text(desc)
-                            .font(.body)
-                            .foregroundColor(.primary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                TodoDetailTimeScheduleCard(
+                    plannedDateText: todo.plannedDateOnlyDisplayText,
+                    plannedSlotText: todo.timeSlotStartDisplayText,
+                    startDateText: todo.createdDateOnlyDisplayText,
+                    startSlotText: todo.timeSlotStartDisplayText,
+                    endDateText: todo.createdDateOnlyDisplayText,
+                    endSlotText: todo.timeSlotEndDisplayText
+                )
+                .padding(.horizontal, 20)
+
+                HStack(alignment: .top, spacing: 12) {
+                    TodoDetailMetaChip(
+                        title: "计划时长",
+                        value: todo.timeSlotDurationDisplayText,
+                        usesProportionalVerticalLayout: true
+                    )
+                    VStack(spacing: 12) {
+                        TodoDetailMetaChip(
+                            title: "投入时长",
+                            value: todo.investedDurationDisplayText(
+                                liveTimerSeconds: viewModel.currentWorkSeconds(todoId: todo.id)
+                            ),
+                            usesProportionalVerticalLayout: true
+                        )
+                        TodoDetailMetaChip(
+                            title: "优先级",
+                            value: todo.priority.displayName,
+                            usesProportionalVerticalLayout: true
+                        )
                     }
+                    .frame(maxWidth: .infinity)
+                    VStack(spacing: 12) {
+                        if let category = todo.taskCategoryLabel {
+                            TodoDetailMetaChip(
+                                title: "分类",
+                                value: category,
+                                usesProportionalVerticalLayout: true
+                            )
+                        }
+                        TodoDetailMetaChip(
+                            title: "状态",
+                            value: todo.status.displayName,
+                            usesProportionalVerticalLayout: true
+                        )
+                    }
+                    .frame(maxWidth: .infinity)
                 }
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("创建时间")
-                        .font(.caption.weight(.semibold))
-                        .foregroundColor(.secondary)
-                    Text(Self.detailDateFormatter.string(from: todo.createdAt))
-                        .font(.subheadline)
-                        .foregroundColor(.primary)
-                }
+                .padding(.horizontal, 20)
 
                 if todo.isCompleted {
-                    if let spent = todo.completionDurationDisplayText {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("完成耗时")
-                                .font(.caption.weight(.semibold))
-                                .foregroundColor(.secondary)
-                            Text(spent)
-                                .font(.subheadline)
-                                .foregroundColor(Color(hex: "#2B5748"))
-                        }
+                    if let spent = todo.completionDurationCompactText {
+                        TodoDetailInfoCard(
+                            title: "完成用时",
+                            value: spent,
+                            icon: "alarm"
+                        )
+                        .padding(.horizontal, 20)
                     }
                     if let done = todo.completedDate {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("完成时间")
-                                .font(.caption.weight(.semibold))
-                                .foregroundColor(.secondary)
-                            Text(Self.detailDateFormatter.string(from: done))
-                                .font(.subheadline)
-                                .foregroundColor(.primary)
-                        }
+                        TodoDetailInfoCard(
+                            title: "完成时间",
+                            value: Self.detailDateFormatter.string(from: done),
+                            icon: "checkmark.circle"
+                        )
+                        .padding(.horizontal, 20)
                     }
                 }
             }
-            .padding(20)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, TodoRowCardMetrics.detailPageTopInset)
+            .padding(.bottom, 24)
         }
-        .background(Color(.systemGroupedBackground))
-        .navigationTitle("详情")
+        .background(
+            LinearGradient(
+                colors: [Color.white, Color(hex: "#d8f3dc")],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+        )
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
     }
 }
