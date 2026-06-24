@@ -1471,157 +1471,17 @@ private struct LifeCategoryDetailView: View {
     private func ootdCalendarCard(width: CGFloat) -> some View {
         let cardW = cardWidth(for: width)
         let markedDates = viewModel.ootdMarkedDates(for: category.id, in: ootdCalendarMonth)
-        let gridDays = ootdCalendarGridDays(for: ootdCalendarMonth)
-        let cellSize = (cardW - 32 - 6 * 4) / 7
-        let gridHeight = cellSize * CGFloat(gridDays.count / 7) + CGFloat(max(0, gridDays.count / 7 - 1)) * 4
-        let cardH = OutfitPageCardMetrics.titleTopInset
-            + 36
-            + OutfitPageCardMetrics.titleBottomInset
-            + 20
-            + 8
-            + gridHeight
-            + OutfitPageCardMetrics.contentBottomInset
 
-        return VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .center) {
-                Text("OOTD 日历")
-                    .font(.headline)
-                    .foregroundStyle(MindFlowFormSheetStyle.accent)
-
-                Spacer(minLength: 8)
-
-                HStack(spacing: 4) {
-                    Button {
-                        ootdCalendarMonth = Calendar.current.date(
-                            byAdding: .month,
-                            value: -1,
-                            to: ootdCalendarMonth
-                        ) ?? ootdCalendarMonth
-                    } label: {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(MindFlowFormSheetStyle.accent)
-                            .frame(width: 32, height: 32)
-                    }
-                    .buttonStyle(.plain)
-
-                    Text(ootdCalendarMonthTitle)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(MindFlowFormSheetStyle.accent)
-                        .frame(minWidth: 88)
-
-                    Button {
-                        ootdCalendarMonth = Calendar.current.date(
-                            byAdding: .month,
-                            value: 1,
-                            to: ootdCalendarMonth
-                        ) ?? ootdCalendarMonth
-                    } label: {
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(MindFlowFormSheetStyle.accent)
-                            .frame(width: 32, height: 32)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, OutfitPageCardMetrics.titleTopInset)
-            .padding(.bottom, OutfitPageCardMetrics.titleBottomInset)
-
-            HStack(spacing: 4) {
-                ForEach(ootdWeekdaySymbols, id: \.self) { symbol in
-                    Text(symbol)
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .frame(width: cellSize)
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 8)
-
-            LazyVGrid(
-                columns: Array(repeating: GridItem(.fixed(cellSize), spacing: 4), count: 7),
-                spacing: 4
-            ) {
-                ForEach(Array(gridDays.enumerated()), id: \.offset) { _, day in
-                    if let day {
-                        ootdCalendarDayCell(day, cellSize: cellSize, markedDates: markedDates)
-                    } else {
-                        Color.clear
-                            .frame(width: cellSize, height: cellSize)
-                    }
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 16)
-        }
-        .frame(width: cardW, height: cardH)
-        .todoPanelCardChrome()
+        return MindFlowOOTDStyleCalendarCard(
+            title: "OOTD 日历",
+            displayedMonth: $ootdCalendarMonth,
+            isDayMarked: { markedDates.contains(Calendar.current.startOfDay(for: $0)) },
+            onDayTap: { selectedOOTDDate = OOTDDateSelection(date: $0) },
+            dayInteraction: .ootdHistory,
+            contentWidth: cardW
+        )
         .padding(.horizontal, 20)
         .frame(width: max(0, width))
-    }
-
-    private var ootdCalendarMonthTitle: String {
-        ootdCalendarMonth.formatted(.dateTime.year().month(.wide))
-    }
-
-    private var ootdWeekdaySymbols: [String] {
-        ["一", "二", "三", "四", "五", "六", "日"]
-    }
-
-    private func ootdCalendarGridDays(for month: Date) -> [Date?] {
-        var calendar = Calendar.current
-        calendar.firstWeekday = 2
-        guard
-            let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: month)),
-            let dayCount = calendar.range(of: .day, in: .month, for: monthStart)?.count
-        else { return [] }
-
-        let weekdayIndex = calendar.component(.weekday, from: monthStart)
-        let leadingBlanks = (weekdayIndex - calendar.firstWeekday + 7) % 7
-        var days: [Date?] = Array(repeating: nil, count: leadingBlanks)
-        for offset in 0..<dayCount {
-            days.append(calendar.date(byAdding: .day, value: offset, to: monthStart))
-        }
-        while days.count % 7 != 0 {
-            days.append(nil)
-        }
-        return days
-    }
-
-    @ViewBuilder
-    private func ootdCalendarDayCell(_ day: Date, cellSize: CGFloat, markedDates: Set<Date>) -> some View {
-        let calendar = Calendar.current
-        let dayStart = calendar.startOfDay(for: day)
-        let hasOOTD = markedDates.contains(dayStart)
-        let dayNumber = calendar.component(.day, from: day)
-
-        if hasOOTD {
-            Button {
-                selectedOOTDDate = OOTDDateSelection(date: dayStart)
-            } label: {
-                VStack(spacing: 2) {
-                    Text("\(dayNumber)")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
-                    Circle()
-                        .fill(Color.white.opacity(0.85))
-                        .frame(width: 4, height: 4)
-                }
-                .frame(width: cellSize, height: cellSize)
-                .background(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(MindFlowFormSheetStyle.accent)
-                )
-            }
-            .buttonStyle(.plain)
-        } else {
-            Text("\(dayNumber)")
-                .font(.subheadline)
-                .foregroundStyle(.secondary.opacity(0.55))
-                .frame(width: cellSize, height: cellSize)
-        }
     }
 
     private func wardrobeItemButton(_ item: WardrobeItem) -> some View {
