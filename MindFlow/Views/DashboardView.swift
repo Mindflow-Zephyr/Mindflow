@@ -40,6 +40,114 @@ struct LifeDetailItem: Identifiable, Hashable {
     }
 }
 
+enum MenuItemStatus: String, CaseIterable, Hashable {
+    case signature
+    case proficient
+    case practicing
+    case wantToLearn
+
+    var title: String {
+        switch self {
+        case .signature: return "招牌菜"
+        case .proficient: return "熟练菜"
+        case .practicing: return "练习中"
+        case .wantToLearn: return "想学习"
+        }
+    }
+
+    var countColor: Color {
+        switch self {
+        case .signature: return Color(hex: "#2B5748")
+        case .proficient: return Color(hex: "#3A9491")
+        case .practicing: return Color(hex: "#C4A035")
+        case .wantToLearn: return Color(hex: "#E8954A")
+        }
+    }
+
+    var isMastered: Bool {
+        self != .wantToLearn
+    }
+}
+
+enum MenuCuisineKind: String, CaseIterable, Identifiable, Hashable {
+    case chineseHome = "中式家常"
+    case quick = "快手菜"
+    case noodles = "面食"
+    case soup = "汤类"
+    case western = "西式简餐"
+    case japanese = "日式料理"
+    case baking = "烘焙甜品"
+    case other = "其他"
+
+    var id: String { rawValue }
+
+    var menuGroup: String {
+        MenuCategoryCatalog.group(for: self)
+    }
+}
+
+enum MenuCategoryCatalog {
+    static let groups: [(group: String, types: [String])] = [
+        ("中餐", ["中式家常", "快手菜", "面食", "汤类"]),
+        ("西餐", ["西式简餐"]),
+        ("日韩", ["日式料理"]),
+        ("烘焙", ["烘焙甜品"]),
+        ("其他", ["其他"])
+    ]
+
+    static var allGroups: [String] {
+        groups.map(\.group)
+    }
+
+    static func types(in group: String) -> [String] {
+        groups.first { $0.group == group }?.types ?? []
+    }
+
+    static func group(for cuisine: MenuCuisineKind) -> String {
+        groups.first { pair in
+            pair.types.contains(cuisine.rawValue)
+        }?.group ?? "其他"
+    }
+
+    static func cuisineKind(for type: String) -> MenuCuisineKind? {
+        MenuCuisineKind(rawValue: type)
+    }
+}
+
+struct MenuItem: Identifiable, Hashable {
+    let id: UUID
+    var categoryId: UUID
+    var name: String
+    var cuisine: MenuCuisineKind
+    var status: MenuItemStatus
+    var cookCount: Int
+
+    init(
+        id: UUID = UUID(),
+        categoryId: UUID,
+        name: String,
+        cuisine: MenuCuisineKind,
+        status: MenuItemStatus,
+        cookCount: Int = 0
+    ) {
+        self.id = id
+        self.categoryId = categoryId
+        self.name = name
+        self.cuisine = cuisine
+        self.status = status
+        self.cookCount = cookCount
+    }
+}
+
+struct MenuLibraryStats: Equatable {
+    let masteredCount: Int
+    let weeklyDelta: Int
+    let signatureCount: Int
+    let proficientCount: Int
+    let practicingCount: Int
+    let wantToLearnCount: Int
+}
+
 struct WardrobeItem: Identifiable, Hashable {
     let id: UUID
     var categoryId: UUID
@@ -203,7 +311,7 @@ enum LifeCategoryPanelIntent: Equatable {
     case edit(LifeCategory)
 }
 
-private enum WardrobeCategoryCatalog {
+enum WardrobeCategoryCatalog {
     static let groups: [(group: String, types: [String])] = [
         ("上装", ["T恤", "衬衫", "POLO", "毛衣", "外套"]),
         ("下装", ["牛仔裤", "西裤", "短裤", "运动裤"]),
@@ -277,20 +385,116 @@ private enum WardrobeRowMetrics {
     static let listTopInset: CGFloat = 8
     static let pageIndicatorReserve: CGFloat = 16
     static let cardBottomInset: CGFloat = 20
+    /// 衣物库翻页弹簧响应（可调试，越大越慢）
+    static let pageTurnSpringResponse: CGFloat = 0.62
+    /// 衣物库翻页阻尼（可调试，越小越「弹」）
+    static let pageTurnDamping: CGFloat = 0.86
+    /// 衣物库卡片尺寸变化动画响应（可调试）
+    static let cardLayoutSpringResponse: CGFloat = 0.42
+    /// 衣物库卡片尺寸变化阻尼（可调试）
+    static let cardLayoutDamping: CGFloat = 0.88
+}
+
+private struct WardrobeLibraryPageIndicator: View {
+    let count: Int
+    let selection: Int
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(0..<count, id: \.self) { index in
+                Circle()
+                    .fill(
+                        index == selection
+                            ? MindFlowFormSheetStyle.accent
+                            : Color.secondary.opacity(0.35)
+                    )
+                    .frame(width: 6, height: 6)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+private struct WardrobeLibrarySlowPagePager<Content: View>: View {
+    @Binding var selection: Int
+    let pageCount: Int
+    let height: CGFloat
+    let showsPageIndicator: Bool
+    @ViewBuilder let content: (Int) -> Content
+
+    var layoutResetToken: String = ""
+
+    var body: some View {
+        let indicatorHeight = showsPageIndicator ? WardrobeRowMetrics.pageIndicatorReserve : 0
+        let contentHeight = max(0, height - indicatorHeight)
+
+        VStack(spacing: 0) {
+            GeometryReader { geometry in
+                let pageWidth = max(geometry.size.width, 1)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(alignment: .top, spacing: 0) {
+                        ForEach(0..<pageCount, id: \.self) { index in
+                            content(index)
+                                .frame(width: pageWidth, height: contentHeight, alignment: .top)
+                                .id(index)
+                        }
+                    }
+                    .scrollTargetLayout()
+                }
+                .scrollTargetBehavior(.paging)
+                .scrollPosition(id: pageSelectionBinding)
+                .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
+                .frame(width: pageWidth, height: contentHeight)
+            }
+            .frame(height: contentHeight)
+            .clipped()
+
+            if showsPageIndicator {
+                WardrobeLibraryPageIndicator(count: pageCount, selection: selection)
+                    .frame(height: indicatorHeight)
+            }
+        }
+        .frame(height: height)
+        .onChange(of: layoutResetToken) { _, _ in
+            if selection >= pageCount {
+                selection = max(0, pageCount - 1)
+            }
+        }
+    }
+
+    private var pageSelectionBinding: Binding<Int?> {
+        Binding(
+            get: { selection },
+            set: { newValue in
+                if let newValue {
+                    selection = newValue
+                }
+            }
+        )
+    }
 }
 
 /// 穿搭页卡片间距，可按需调整数值。
 private enum OutfitPageCardMetrics {
-    /// 卡片小标题（如「衣物库」「OOTD」）距卡片顶部的内边距，越小越贴近上沿
+    /// 卡片小标题（如「衣物库」）距卡片顶部的内边距
     static let titleTopInset: CGFloat = 4
+    /// OOTD 卡片标题距卡片顶部的内边距（仅 OOTD 计划卡片，调大则标题更靠下）
+    static let ootdPlanTitleTopInset: CGFloat = 10
     /// 小标题与下方内容区的间距
     static let titleBottomInset: CGFloat = 6
-    /// 标题栏估算高度（用于衣物库卡片总高度计算）
+    /// 标题栏估算高度（用于衣物库等卡片总高度计算）
     static var titleBarHeight: CGFloat { titleTopInset + titleBottomInset + 20 }
+    /// OOTD 计划卡片标题栏估算高度
+    static var ootdPlanTitleBarHeight: CGFloat { ootdPlanTitleTopInset + titleBottomInset + 20 }
     /// 卡片内容区底部留白
     static let contentBottomInset: CGFloat = 16
     /// 喜爱度排行卡片：小标题与排名列表的间距
     static let favoriteRankingHeaderBottomSpacing: CGFloat = 14
+    /// 排行榜页：每个榜单标题与下方列表内容的间距（可调试）
+    static let rankingHubHeaderBottomSpacing: CGFloat = 15
+    /// 排行榜页：每个榜单标题距卡片顶部的间距（可调试）
+    static let rankingHubTitleTopInset: CGFloat = 15
     /// 排行预览列表行间距
     static let rankingPreviewRowSpacing: CGFloat = 8
 }
@@ -367,6 +571,17 @@ enum OutfitHubRankingKind: String, CaseIterable, Identifiable, Hashable {
     var usesBrandEntries: Bool {
         self == .brandCount
     }
+
+    var detailSubtitle: String {
+        switch self {
+        case .favorite: "记录你最爱的单品，发现风格偏好"
+        case .price: "了解衣橱价值分布，理性管理消费"
+        case .wearCount: "看看哪些单品最常穿，提高利用率"
+        case .costPerWear: "每次穿着越省，性价比越高"
+        case .brandCount: "统计品牌持有数量，整理衣橱结构"
+        case .consecutiveWearDays: "坚持穿搭每一天，记录你的生活风格"
+        }
+    }
 }
 
 struct OutfitBrandRankEntry: Identifiable, Hashable {
@@ -404,7 +619,7 @@ enum OutfitTodoCategory {
     static let outfitTaskCategoryId = 8
 }
 
-/// 待办可选分类：与生活页已接入的叶子分类对齐（新增生活分类待办能力时在此追加）
+/// 待办可选分类：与分类页已接入的叶子分类对齐（新增分类待办能力时在此追加）
 struct TodoLifeCategoryOption: Identifiable, Hashable {
     let taskCategoryId: Int
     let title: String
@@ -414,7 +629,14 @@ struct TodoLifeCategoryOption: Identifiable, Hashable {
 }
 
 enum TodoLifeCategoryCatalog {
+    static let fitnessCategoryId = 1
+    static let workCategoryId = 2
+    static let lifeCategoryId = 3
+
     static let available: [TodoLifeCategoryOption] = [
+        TodoLifeCategoryOption(taskCategoryId: fitnessCategoryId, title: "健身", icon: "figure.run"),
+        TodoLifeCategoryOption(taskCategoryId: workCategoryId, title: "工作", icon: "briefcase"),
+        TodoLifeCategoryOption(taskCategoryId: lifeCategoryId, title: "生活", icon: "leaf"),
         TodoLifeCategoryOption(taskCategoryId: OutfitTodoCategory.outfitTaskCategoryId, title: "穿搭", icon: "tshirt")
     ]
 
@@ -552,7 +774,7 @@ private enum WardrobeColorResolver {
         let ui = UIColor(fillColor(for: name))
         var white: CGFloat = 0
         ui.getWhite(&white, alpha: nil)
-        return white > 0.65 ? MindFlowFormSheetStyle.accent : Color.white
+        return white > 0.65 ? Color.black : Color.white
     }
 }
 
@@ -805,9 +1027,7 @@ private struct LifeCategoryListScreen: View {
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
-            .safeAreaInset(edge: .bottom) {
-                Color.clear.frame(height: 100)
-            }
+            .mindFlowScrollContentBottomInset()
         }
         .safeAreaInset(edge: .top, spacing: 14) {
             if isRootScreen {
@@ -972,8 +1192,12 @@ private struct LifeCategoryDetailView: View {
     @State private var showResearchTime = false
     @State private var showOutfitSettings = false
     @State private var selectedHubRankingKind: OutfitHubRankingKind?
+    @State private var selectedMenuGroup: String? = MenuCategoryCatalog.allGroups.first
+    @State private var selectedMenuType: String?
+    @State private var menuListPage = 0
 
     private static let wardrobePageSize = 5
+    private static let menuPageSize = 5
 
     private var items: [LifeDetailItem] {
         viewModel.items(in: category.id)
@@ -981,6 +1205,50 @@ private struct LifeCategoryDetailView: View {
 
     private var wardrobeItems: [WardrobeItem] {
         viewModel.wardrobeItems(in: category.id)
+    }
+
+    private var cookingMenuItems: [MenuItem] {
+        viewModel.menuItems(in: category.id)
+    }
+
+    private var filteredMenuItems: [MenuItem] {
+        var result = cookingMenuItems
+        if let group = selectedMenuGroup {
+            let cuisines = Set(MenuCategoryCatalog.types(in: group).compactMap(MenuCuisineKind.init(rawValue:)))
+            result = result.filter { cuisines.contains($0.cuisine) }
+        }
+        if let type = selectedMenuType, let cuisine = MenuCategoryCatalog.cuisineKind(for: type) {
+            result = result.filter { $0.cuisine == cuisine }
+        }
+        return result
+    }
+
+    private var sortedMenuItems: [MenuItem] {
+        filteredMenuItems.sorted { lhs, rhs in
+            if lhs.cookCount != rhs.cookCount { return lhs.cookCount > rhs.cookCount }
+            return lhs.name.localizedCompare(rhs.name) == .orderedAscending
+        }
+    }
+
+    private var menuItemPages: [[MenuItem]] {
+        let items = sortedMenuItems
+        guard !items.isEmpty else { return [] }
+        return stride(from: 0, to: items.count, by: Self.menuPageSize).map { start in
+            Array(items[start..<min(start + Self.menuPageSize, items.count)])
+        }
+    }
+
+    private var menuLibraryLayoutToken: String {
+        [
+            String(sortedMenuItems.count),
+            selectedMenuGroup ?? "",
+            selectedMenuType ?? "",
+            String(menuItemPages.count)
+        ].joined(separator: "|")
+    }
+
+    private var menuSubtypes: [String] {
+        selectedMenuGroup.map { MenuCategoryCatalog.types(in: $0) } ?? []
     }
 
     private var filteredWardrobeItems: [WardrobeItem] {
@@ -1034,19 +1302,20 @@ private struct LifeCategoryDetailView: View {
         viewModel.outfitPlanItems(for: category.id)
     }
 
-    private var wardrobeCardAnimation: Animation {
-        .smooth(duration: 0.32, extraBounce: 0)
-    }
-
     private var outfitCardSpring: Animation {
         .spring(response: 0.46, dampingFraction: 0.78)
+    }
+
+    private var wardrobeCardLayoutAnimation: Animation {
+        .spring(
+            response: WardrobeRowMetrics.cardLayoutSpringResponse,
+            dampingFraction: WardrobeRowMetrics.cardLayoutDamping
+        )
     }
 
     private var wardrobeLibraryLayoutToken: String {
         [
             String(sortedWardrobeItems.count),
-            String(wardrobeListPage),
-            String(wardrobeLibraryListRowCount),
             wardrobeSortMode.rawValue,
             selectedWardrobeGroup ?? "",
             selectedWardrobeType ?? "",
@@ -1054,17 +1323,27 @@ private struct LifeCategoryDetailView: View {
         ].joined(separator: "|")
     }
 
-    private var wardrobeLibraryListRowCount: Int {
-        let pages = wardrobeItemPages
-        guard !pages.isEmpty else { return 1 }
-        if wardrobeListPage == 0 {
-            return max(1, pages[0].count)
-        }
-        return Self.wardrobePageSize
+    private func wardrobePageRowCount(pages: [[WardrobeItem]], pageIndex: Int) -> Int {
+        guard pageIndex >= 0, pageIndex < pages.count else { return 1 }
+        return max(1, pages[pageIndex].count)
+    }
+
+    private func wardrobeListAreaHeight(
+        rowCount: Int,
+        rowSpacing: CGFloat,
+        pageIndicatorReserve: CGFloat
+    ) -> CGFloat {
+        let rowsHeight = CGFloat(rowCount) * WardrobeRowMetrics.listRowHeight
+            + CGFloat(max(0, rowCount - 1)) * rowSpacing
+        return WardrobeRowMetrics.listTopInset + rowsHeight + pageIndicatorReserve
     }
 
     private var isOutfitCategory: Bool {
         category.title == "穿搭"
+    }
+
+    private var isCookingCategory: Bool {
+        category.title == "烹饪"
     }
 
     var body: some View {
@@ -1081,7 +1360,6 @@ private struct LifeCategoryDetailView: View {
                         if isOutfitCategory {
                             if viewModel.outfitPageCardSettings.isVisible(.wardrobeLibrary) {
                                 wardrobeLibraryCard(width: geometry.size.width)
-                                    .animation(wardrobeCardAnimation, value: wardrobeLibraryLayoutToken)
                             }
 
                             if viewModel.outfitPageCardSettings.isVisible(.ootdPlan) {
@@ -1110,14 +1388,15 @@ private struct LifeCategoryDetailView: View {
                             if viewModel.outfitPageCardSettings.isVisible(.actionCards) {
                                 outfitActionCardsRow(width: geometry.size.width)
                             }
+                        } else if isCookingCategory {
+                            menuLibraryStatsCard(width: geometry.size.width)
+                            menuLibraryCard(width: geometry.size.width)
                         } else {
                             detailCard(width: geometry.size.width)
                         }
                     }
                 }
-                .safeAreaInset(edge: .bottom) {
-                    Color.clear.frame(height: 100)
-                }
+                .mindFlowScrollContentBottomInset()
             }
             .overlay(alignment: .top) {
                 if showOOTDRecordedToast {
@@ -1186,6 +1465,17 @@ private struct LifeCategoryDetailView: View {
         .onChange(of: wardrobeSortMode) { _, _ in
             wardrobeListPage = 0
         }
+        .onChange(of: selectedMenuGroup) { _, _ in
+            menuListPage = 0
+        }
+        .onChange(of: selectedMenuType) { _, _ in
+            menuListPage = 0
+        }
+    }
+
+    private func applyMenuFilterChange(_ update: () -> Void) {
+        menuListPage = 0
+        update()
     }
 
     private func syncAddSheetRegistration() {
@@ -1196,25 +1486,25 @@ private struct LifeCategoryDetailView: View {
         )
     }
 
+    private func applyWardrobeFilterChange(_ update: () -> Void) {
+        wardrobeListPage = 0
+        update()
+    }
+
     private func wardrobeLibraryCard(width: CGFloat) -> some View {
         let items = sortedWardrobeItems
         let pages = wardrobeItemPages
         let cardW = cardWidth(for: width)
         let subtypes = selectedWardrobeGroup.map { WardrobeCategoryCatalog.types(in: $0) } ?? []
-        let displayRowCount = items.isEmpty ? 1 : wardrobeLibraryListRowCount
-        let filterHeight: CGFloat = subtypes.isEmpty ? 52 : 96
         let rowSpacing: CGFloat = 8
-        let rowsHeight = CGFloat(displayRowCount) * WardrobeRowMetrics.listRowHeight
-            + CGFloat(max(0, displayRowCount - 1)) * rowSpacing
         let pageIndicatorReserve = pages.count > 1 ? WardrobeRowMetrics.pageIndicatorReserve : 0
-        let listAreaHeight = WardrobeRowMetrics.listTopInset + rowsHeight + pageIndicatorReserve
-        let cardH = max(
-            260,
-            OutfitPageCardMetrics.titleBarHeight
-                + filterHeight
-                + listAreaHeight
-                + WardrobeRowMetrics.cardBottomInset
+        let maxPageRowCount = items.isEmpty ? 1 : (pages.map(\.count).max() ?? 1)
+        let listContentHeight = wardrobeListAreaHeight(
+            rowCount: maxPageRowCount,
+            rowSpacing: rowSpacing,
+            pageIndicatorReserve: WardrobeRowMetrics.cardBottomInset
         )
+        let listAreaHeight = listContentHeight + (pages.count > 1 ? pageIndicatorReserve : 0)
 
         return VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .center) {
@@ -1225,7 +1515,9 @@ private struct LifeCategoryDetailView: View {
                 Spacer(minLength: 8)
 
                 Button {
-                    wardrobeSortMode = wardrobeSortMode.next
+                    applyWardrobeFilterChange {
+                        wardrobeSortMode = wardrobeSortMode.next
+                    }
                 } label: {
                     HStack(spacing: 4) {
                         Text(wardrobeSortMode.title)
@@ -1252,12 +1544,14 @@ private struct LifeCategoryDetailView: View {
                                 title: group,
                                 isSelected: selectedWardrobeGroup == group
                             ) {
-                                if selectedWardrobeGroup == group {
-                                    selectedWardrobeGroup = nil
-                                    selectedWardrobeType = nil
-                                } else {
-                                    selectedWardrobeGroup = group
-                                    selectedWardrobeType = nil
+                                applyWardrobeFilterChange {
+                                    if selectedWardrobeGroup == group {
+                                        selectedWardrobeGroup = nil
+                                        selectedWardrobeType = nil
+                                    } else {
+                                        selectedWardrobeGroup = group
+                                        selectedWardrobeType = nil
+                                    }
                                 }
                             }
                         }
@@ -1273,7 +1567,9 @@ private struct LifeCategoryDetailView: View {
                                     title: type,
                                     isSelected: selectedWardrobeType == type
                                 ) {
-                                    selectedWardrobeType = selectedWardrobeType == type ? nil : type
+                                    applyWardrobeFilterChange {
+                                        selectedWardrobeType = selectedWardrobeType == type ? nil : type
+                                    }
                                 }
                             }
                         }
@@ -1291,39 +1587,29 @@ private struct LifeCategoryDetailView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
             } else {
-                TabView(selection: $wardrobeListPage) {
-                    ForEach(Array(pages.enumerated()), id: \.offset) { pageIndex, pageItems in
-                        Group {
-                            if pageIndex == 0 {
-                                VStack(spacing: rowSpacing) {
-                                    ForEach(pageItems) { item in
-                                        wardrobeItemButton(item)
-                                    }
-                                }
-                            } else {
-                                VStack(spacing: rowSpacing) {
-                                    ForEach(0..<Self.wardrobePageSize, id: \.self) { rowIndex in
-                                        if rowIndex < pageItems.count {
-                                            wardrobeItemButton(pageItems[rowIndex])
-                                        } else {
-                                            Color.clear
-                                                .frame(height: WardrobeRowMetrics.listRowHeight)
-                                        }
-                                    }
-                                }
-                            }
+                WardrobeLibrarySlowPagePager(
+                    selection: $wardrobeListPage,
+                    pageCount: pages.count,
+                    height: listAreaHeight,
+                    showsPageIndicator: pages.count > 1,
+                    layoutResetToken: wardrobeLibraryLayoutToken
+                ) { pageIndex in
+                    let pageItems = pages[pageIndex]
+                    VStack(spacing: rowSpacing) {
+                        ForEach(pageItems) { item in
+                            wardrobeItemButton(item)
                         }
-                        .padding(.top, WardrobeRowMetrics.listTopInset)
-                        .padding(.bottom, pageIndicatorReserve > 0 ? pageIndicatorReserve : 2)
-                        .padding(.horizontal, 8)
-                        .tag(pageIndex)
+                        Spacer(minLength: 0)
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .padding(.top, WardrobeRowMetrics.listTopInset)
+                    .padding(.horizontal, 8)
+                    .animation(nil, value: wardrobeLibraryLayoutToken)
                 }
-                .tabViewStyle(.page(indexDisplayMode: pages.count > 1 ? .automatic : .never))
-                .frame(height: listAreaHeight)
+                .animation(wardrobeCardLayoutAnimation, value: wardrobeLibraryLayoutToken)
             }
         }
-        .frame(width: cardW, height: cardH)
+        .frame(width: cardW)
         .todoPanelCardChrome()
         .padding(.horizontal, 20)
         .frame(width: max(0, width))
@@ -1347,58 +1633,20 @@ private struct LifeCategoryDetailView: View {
     private func favoriteRankingPreviewCard(width: CGFloat) -> some View {
         let cardW = cardWidth(for: width)
         let topItems = viewModel.topFavoriteItems(for: category.id, limit: 3)
-        let rowHeight: CGFloat = 52
-        let rowSpacing = OutfitPageCardMetrics.rankingPreviewRowSpacing
-        let rowsHeight = topItems.isEmpty
-            ? 44.0
-            : CGFloat(topItems.count) * rowHeight + CGFloat(max(0, topItems.count - 1)) * rowSpacing
-        let cardH = OutfitPageCardMetrics.titleTopInset
-            + OutfitPageCardMetrics.favoriteRankingHeaderBottomSpacing
-            + max(rowsHeight, 44)
-            + OutfitPageCardMetrics.contentBottomInset
+        let previewRows = topItems.enumerated().map { index, item in
+            OutfitRankingPreviewRowData.favoriteItem(rank: index + 1, item: item)
+        }
 
         return Button {
             showFavoriteRanking = true
         } label: {
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(alignment: .center) {
-                    Text("喜爱度排行")
-                        .font(.headline)
-                        .foregroundStyle(MindFlowFormSheetStyle.accent)
-
-                    Spacer(minLength: 8)
-
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(MindFlowFormSheetStyle.accent)
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, OutfitPageCardMetrics.titleTopInset)
-                .padding(.bottom, OutfitPageCardMetrics.favoriteRankingHeaderBottomSpacing)
-
-                if topItems.isEmpty {
-                    Text("暂无评分，进入详情页为衣物打分")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, OutfitPageCardMetrics.contentBottomInset)
-                } else {
-                    VStack(spacing: rowSpacing) {
-                        ForEach(Array(topItems.enumerated()), id: \.element.id) { index, item in
-                            WardrobeFavoriteRankingRowView(
-                                rank: index + 1,
-                                item: item,
-                                isCompact: true
-                            )
-                        }
-                    }
-                    .padding(.horizontal, 8)
-                    .padding(.bottom, OutfitPageCardMetrics.contentBottomInset)
-                }
-            }
-            .frame(width: cardW, height: cardH)
-            .todoPanelCardChrome()
+            OutfitRankingPreviewCard(
+                title: "喜爱度排行",
+                headerTrailing: .chevron,
+                emptyMessage: "暂无评分，进入详情页为衣物打分",
+                rows: previewRows
+            )
+            .frame(width: cardW)
         }
         .buttonStyle(.plain)
         .padding(.horizontal, 20)
@@ -1478,6 +1726,8 @@ private struct LifeCategoryDetailView: View {
             isDayMarked: { markedDates.contains(Calendar.current.startOfDay(for: $0)) },
             onDayTap: { selectedOOTDDate = OOTDDateSelection(date: $0) },
             dayInteraction: .ootdHistory,
+            animatesMonthChanges: true,
+            headerBottomSpacing: MindFlowOOTDStyleCalendarMetrics.ootdCalendarCardTitleBottomSpacing,
             contentWidth: cardW
         )
         .padding(.horizontal, 20)
@@ -1519,8 +1769,7 @@ private struct LifeCategoryDetailView: View {
         let itemRowHeight: CGFloat = 44
         let bottomInset: CGFloat = 16
         let contentHeight = CGFloat(outfitItems.count) * itemRowHeight
-        let cardH = OutfitPageCardMetrics.titleTopInset
-            + OutfitPageCardMetrics.titleBottomInset
+        let cardH = OutfitPageCardMetrics.ootdPlanTitleBarHeight
             + contentHeight
             + bottomInset
 
@@ -1547,7 +1796,7 @@ private struct LifeCategoryDetailView: View {
                 }
             }
             .padding(.horizontal, 16)
-            .padding(.top, OutfitPageCardMetrics.titleTopInset)
+            .padding(.top, OutfitPageCardMetrics.ootdPlanTitleTopInset)
             .padding(.bottom, OutfitPageCardMetrics.titleBottomInset)
 
             VStack(spacing: 0) {
@@ -1610,6 +1859,191 @@ private struct LifeCategoryDetailView: View {
         let base = max(1, width + 120)
         let rows = max(items.count, 1)
         return max(base, CGFloat(rows) * 76 + 48)
+    }
+
+    private func menuLibraryStatsCard(width: CGFloat) -> some View {
+        let cardW = cardWidth(for: width)
+        let stats = viewModel.menuLibraryStats(for: category.id)
+
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .lastTextBaseline, spacing: 6) {
+                Text("\(stats.masteredCount)")
+                    .font(.system(size: 34, weight: .bold))
+                    .foregroundStyle(MindFlowFormSheetStyle.accent)
+                Text("道菜")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(MindFlowFormSheetStyle.accent)
+                Text("已掌握")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.bottom, 2)
+                Spacer(minLength: 8)
+                Text("比上周 +\(stats.weeklyDelta) 道")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(MindFlowFormSheetStyle.accent)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Color(hex: "#E8F5E9"))
+                    .clipShape(Capsule(style: .continuous))
+            }
+
+            HStack(spacing: 0) {
+                menuStatusColumn(count: stats.signatureCount, status: .signature)
+                menuStatusColumn(count: stats.proficientCount, status: .proficient)
+                menuStatusColumn(count: stats.practicingCount, status: .practicing)
+                menuStatusColumn(count: stats.wantToLearnCount, status: .wantToLearn)
+            }
+        }
+        .padding(14)
+        .frame(width: cardW, alignment: .leading)
+        .todoPanelCardChrome()
+        .padding(.horizontal, 20)
+        .frame(width: max(0, width))
+    }
+
+    private func menuLibraryCard(width: CGFloat) -> some View {
+        let cardW = cardWidth(for: width)
+        let items = sortedMenuItems
+        let pages = menuItemPages
+        let rowSpacing: CGFloat = 8
+        let pageIndicatorReserve = pages.count > 1 ? WardrobeRowMetrics.pageIndicatorReserve : 0
+        let maxPageRowCount = items.isEmpty ? 1 : (pages.map(\.count).max() ?? 1)
+        let listContentHeight = wardrobeListAreaHeight(
+            rowCount: maxPageRowCount,
+            rowSpacing: rowSpacing,
+            pageIndicatorReserve: WardrobeRowMetrics.cardBottomInset
+        )
+        let listAreaHeight = listContentHeight + (pages.count > 1 ? pageIndicatorReserve : 0)
+
+        return VStack(alignment: .leading, spacing: 0) {
+            Text("菜单库")
+                .font(.headline)
+                .foregroundStyle(MindFlowFormSheetStyle.accent)
+                .padding(.horizontal, 16)
+                .padding(.top, OutfitPageCardMetrics.titleTopInset)
+                .padding(.bottom, OutfitPageCardMetrics.titleBottomInset)
+
+            VStack(alignment: .leading, spacing: 12) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(MenuCategoryCatalog.allGroups, id: \.self) { group in
+                            WardrobeFilterChip(
+                                title: group,
+                                isSelected: selectedMenuGroup == group
+                            ) {
+                                applyMenuFilterChange {
+                                    if selectedMenuGroup == group {
+                                        selectedMenuGroup = nil
+                                        selectedMenuType = nil
+                                    } else {
+                                        selectedMenuGroup = group
+                                        selectedMenuType = nil
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+
+                if !menuSubtypes.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(menuSubtypes, id: \.self) { type in
+                                WardrobeFilterChip(
+                                    title: type,
+                                    isSelected: selectedMenuType == type
+                                ) {
+                                    applyMenuFilterChange {
+                                        selectedMenuType = selectedMenuType == type ? nil : type
+                                    }
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                    }
+                }
+            }
+            .padding(.bottom, 8)
+
+            if items.isEmpty {
+                Text(emptyMenuMessage)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+            } else {
+                WardrobeLibrarySlowPagePager(
+                    selection: $menuListPage,
+                    pageCount: pages.count,
+                    height: listAreaHeight,
+                    showsPageIndicator: pages.count > 1,
+                    layoutResetToken: menuLibraryLayoutToken
+                ) { pageIndex in
+                    let pageItems = pages[pageIndex]
+                    VStack(spacing: rowSpacing) {
+                        ForEach(pageItems) { item in
+                            menuItemRow(item)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .padding(.top, WardrobeRowMetrics.listTopInset)
+                    .padding(.horizontal, 8)
+                    .animation(nil, value: menuLibraryLayoutToken)
+                }
+                .animation(wardrobeCardLayoutAnimation, value: menuLibraryLayoutToken)
+            }
+        }
+        .frame(width: cardW)
+        .todoPanelCardChrome()
+        .padding(.horizontal, 20)
+        .frame(width: max(0, width))
+        .onChange(of: pages.count) { _, count in
+            if menuListPage >= count {
+                menuListPage = max(0, count - 1)
+            }
+        }
+    }
+
+    private var emptyMenuMessage: String {
+        if selectedMenuType != nil {
+            return "该分类暂无菜品"
+        }
+        if selectedMenuGroup != nil {
+            return "该大类暂无菜品"
+        }
+        return "暂无菜品，点击底部 + 添加"
+    }
+
+    private func menuStatusColumn(count: Int, status: MenuItemStatus) -> some View {
+        VStack(spacing: 4) {
+            Text("\(count) 道")
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(status.countColor)
+            Text(status.title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func menuItemRow(_ item: MenuItem) -> some View {
+        HStack(spacing: 0) {
+            MenuItemRowContent(item: item)
+            Image(systemName: "chevron.right")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(Color(hex: "#2B5748"))
+                .frame(width: 44, height: 44)
+        }
+        .padding(.vertical, WardrobeRowMetrics.verticalPadding)
+        .padding(.leading, MindFlowListRowCardStyle.leadingPadding)
+        .padding(.trailing, 8)
+        .frame(minHeight: WardrobeRowMetrics.listRowHeight)
+        .mindFlowListRowCardChrome()
     }
 
     private func detailCard(width: CGFloat) -> some View {
@@ -1713,6 +2147,26 @@ private struct WardrobeItemRowContent: View {
     }
 }
 
+private struct MenuItemRowContent: View {
+    let item: MenuItem
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text(item.name)
+                .font(.headline)
+                .foregroundColor(.primary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Text("\(item.cuisine.rawValue) · \(item.status.title) · 做过\(item.cookCount)次")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+    }
+}
+
 private struct OutfitPlanItemRow: View {
     let item: WardrobeItem
     let onRemove: () -> Void
@@ -1746,7 +2200,6 @@ private struct WardrobeItemDetailView: View {
     let itemId: UUID
 
     @Environment(\.dismiss) private var dismiss
-    @State private var showDeleteConfirmation = false
     @State private var rankingRoute: WardrobeRankingRoute?
     @State private var showFavoriteRating = false
     @FocusState private var focusedChip: WardrobeDetailChipField?
@@ -1772,6 +2225,7 @@ private struct WardrobeItemDetailView: View {
                     }
                 }
                 .scrollDismissesKeyboard(.immediately)
+                .mindFlowScrollContentBottomInset()
             } else {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -1784,15 +2238,6 @@ private struct WardrobeItemDetailView: View {
         }
         .sheet(isPresented: $showFavoriteRating) {
             WardrobeFavoriteRatingSheet(viewModel: viewModel, itemId: itemId)
-        }
-        .alert("删除这件衣物？", isPresented: $showDeleteConfirmation) {
-            Button("删除", role: .destructive) {
-                viewModel.deleteWardrobeItem(id: itemId)
-                dismiss()
-            }
-            Button("取消", role: .cancel) {}
-        } message: {
-            Text("删除后无法恢复。")
         }
         .onAppear {
             if let item {
@@ -1873,43 +2318,6 @@ private struct WardrobeItemDetailView: View {
                     focusedChip = nil
                     showFavoriteRating = true
                 }
-            }
-            .padding(.horizontal, 20)
-
-            HStack(spacing: 12) {
-                Button {
-                    focusedChip = nil
-                    withAnimation(.spring(response: 0.42, dampingFraction: 0.88)) {
-                        viewModel.presentWardrobeEdit(item)
-                    }
-                } label: {
-                    Text("编辑")
-                        .font(.headline)
-                        .foregroundStyle(MindFlowFormSheetStyle.accent)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .stroke(MindFlowFormSheetStyle.accent, lineWidth: 1.5)
-                        )
-                }
-                .buttonStyle(.plain)
-
-                Button {
-                    focusedChip = nil
-                    showDeleteConfirmation = true
-                } label: {
-                    Text("删除")
-                        .font(.headline)
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(Color.red)
-                        )
-                }
-                .buttonStyle(.plain)
             }
             .padding(.horizontal, 20)
         }
@@ -2550,10 +2958,6 @@ private struct WardrobeColorSquareChip: View {
             .frame(height: WardrobeDetailChipMetrics.height)
             .background(fillColor)
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .stroke(MindFlowFormSheetStyle.accent.opacity(0.18), lineWidth: 1)
-            )
         }
         .buttonStyle(.plain)
         .sheet(isPresented: $showPalette) {
@@ -2601,8 +3005,8 @@ private struct WardrobeColorPaletteSheet: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
-                .padding(.bottom, 24)
             }
+            .mindFlowScrollContentBottomInset()
             .background(lifePageBackground)
             .navigationTitle("选择颜色")
             .navigationBarTitleDisplayMode(.inline)
@@ -2736,8 +3140,8 @@ private struct WardrobeFavoriteRatingSheet: View {
                     .padding(.horizontal, 20)
                 }
                 .padding(.top, 12)
-                .padding(.bottom, 24)
             }
+            .mindFlowScrollContentBottomInset()
             .background(lifePageBackground)
             .navigationTitle("喜爱度评分")
             .navigationBarTitleDisplayMode(.inline)
@@ -2797,50 +3201,6 @@ private struct WardrobeFavoriteDimensionSlider: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .todoPanelCardChrome()
-    }
-}
-
-private struct WardrobeFavoriteRankingRowView: View {
-    let rank: Int
-    let item: WardrobeItem
-    var isCompact: Bool = false
-    var metricText: String?
-
-    private var rankColor: Color {
-        WardrobeRankPalette.foregroundColor(for: rank)
-    }
-
-    private var trailingText: String {
-        if let metricText {
-            return metricText
-        }
-        if let score = item.favoriteScores.overallScore {
-            return "\(score)分"
-        }
-        return "未评分"
-    }
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Text("#\(rank)")
-                .font(isCompact ? .subheadline.weight(.bold) : .headline.weight(.bold))
-                .foregroundStyle(rankColor)
-                .frame(width: 32, alignment: .leading)
-
-            Text("\(item.brand) · \(item.name)")
-                .font(isCompact ? .subheadline.weight(.medium) : .body.weight(.medium))
-                .foregroundStyle(.primary)
-                .lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            Text(trailingText)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(rankColor)
-                .lineLimit(1)
-        }
-        .padding(.vertical, isCompact ? 10 : 14)
-        .padding(.horizontal, isCompact ? 12 : 16)
-        .mindFlowListRowCardChrome()
     }
 }
 
@@ -2905,28 +3265,24 @@ private struct WardrobeFavoriteRankingView: View {
                     }
                 }
 
-                if rankedItems.isEmpty {
-                    Text("该分类暂无衣物")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 20)
-                } else {
-                    VStack(spacing: 8) {
-                        ForEach(Array(rankedItems.enumerated()), id: \.element.id) { index, item in
-                            Button {
-                                selectedDetailItemId = item.id
-                            } label: {
-                                WardrobeFavoriteRankingRowView(rank: index + 1, item: item)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(.horizontal, 12)
-                }
+                OutfitRankingFullPageHeader(
+                    kind: .favorite,
+                    selectedWardrobeGroup: $selectedWardrobeGroup
+                )
+                .padding(.horizontal, 16)
+
+                OutfitRankingFullItemRankingBody(
+                    kind: .favorite,
+                    items: rankedItems,
+                    metricValue: { viewModel.outfitRankingMetricValue(for: $0, kind: .favorite) },
+                    onSelect: { selectedDetailItemId = $0 },
+                    listLimit: rankedItems.count
+                )
+                .padding(.horizontal, 16)
             }
             .padding(.top, 12)
-            .padding(.bottom, 24)
         }
+        .mindFlowScrollContentBottomInset()
         .background(lifePageBackground)
         .navigationTitle("喜爱度排行")
         .navigationBarTitleDisplayMode(.inline)
@@ -2963,87 +3319,23 @@ private struct WardrobeTypeRankingView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 10) {
-                ForEach(rankedEntries, id: \.item.id) { entry in
-                    Button {
-                        selectedDetailItemId = entry.item.id
-                    } label: {
-                        WardrobeRankingRowView(
-                            rank: entry.rank,
-                            item: entry.item,
-                            kind: route.kind,
-                            isCurrent: entry.item.id == route.itemId
-                        )
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 12)
-            .padding(.bottom, 24)
+            OutfitRankingFullItemRankingBody(
+                kind: route.kind.hubRankingKind,
+                items: rankedEntries.map(\.item),
+                metricValue: { viewModel.outfitRankingMetricValue(for: $0, kind: route.kind.hubRankingKind) },
+                onSelect: { selectedDetailItemId = $0 },
+                highlightItemId: route.itemId,
+                listLimit: rankedEntries.count
+            )
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
         }
+        .mindFlowScrollContentBottomInset()
         .background(lifePageBackground)
         .navigationTitle(pageTitle)
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(item: $selectedDetailItemId) { itemId in
             WardrobeItemDetailView(viewModel: viewModel, itemId: itemId)
-        }
-    }
-}
-
-private struct WardrobeRankingRowView: View {
-    let rank: Int
-    let item: WardrobeItem
-    let kind: WardrobeRankingKind
-    let isCurrent: Bool
-
-    private var rankColor: Color {
-        WardrobeRankPalette.foregroundColor(for: rank)
-    }
-
-    private var metricText: String {
-        switch kind {
-        case .price:
-            return String(format: "¥%.0f", item.purchasePrice)
-        case .wearCount:
-            return "\(item.wearCount)次"
-        }
-    }
-
-    var body: some View {
-        HStack(spacing: 12) {
-            ZStack(alignment: .topTrailing) {
-                Text("#\(rank)")
-                    .font(.headline.weight(.bold))
-                    .foregroundStyle(rankColor)
-                    .frame(width: 36, alignment: .leading)
-
-                if WardrobeRankPalette.showsCrown(for: rank) {
-                    Image(systemName: "crown.fill")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(Color(hex: "#D4AF37"))
-                        .offset(x: 5, y: -8)
-                }
-            }
-            .frame(width: 36, alignment: .leading)
-
-            Text("\(item.brand) · \(item.name)")
-                .font(.body.weight(isCurrent ? .semibold : .regular))
-                .foregroundStyle(rankColor)
-                .lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            Text(metricText)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(rankColor)
-        }
-        .mindFlowListRowCardPadding()
-        .mindFlowListRowCardChrome()
-        .overlay {
-            if isCurrent {
-                RoundedRectangle(cornerRadius: MindFlowListRowCardStyle.cornerRadius, style: .continuous)
-                    .stroke(rankColor, lineWidth: 1.5)
-            }
         }
     }
 }
@@ -3128,6 +3420,18 @@ private struct OOTDHistorySheet: View {
     let date: Date
 
     @Environment(\.dismiss) private var dismiss
+    @State private var showDeleteConfirmation = false
+
+    private static let titleFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.dateFormat = "yyyy年M月d日"
+        return formatter
+    }()
+
+    private var navigationTitleText: String {
+        Self.titleFormatter.string(from: date)
+    }
 
     private var record: OOTDHistoryRecord? {
         viewModel.ootdRecord(for: categoryId, on: date)
@@ -3135,6 +3439,10 @@ private struct OOTDHistorySheet: View {
 
     private var displayItems: [WardrobeItem] {
         viewModel.ootdDisplayItems(for: categoryId, on: date)
+    }
+
+    private var canDeleteOOTD: Bool {
+        !displayItems.isEmpty || record != nil
     }
 
     var body: some View {
@@ -3176,14 +3484,31 @@ private struct OOTDHistorySheet: View {
                     .padding(.vertical, 8)
                 }
             }
+            .mindFlowScrollContentBottomInset()
             .background(lifePageBackground)
-            .navigationTitle(date.formatted(.dateTime.year().month().day()))
+            .navigationTitle(navigationTitleText)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    if canDeleteOOTD {
+                        Button("删除", role: .destructive) {
+                            showDeleteConfirmation = true
+                        }
+                    }
+                }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("完成") { dismiss() }
+                    Button("确认") { dismiss() }
                 }
             }
+        }
+        .alert("删除该日 OOTD？", isPresented: $showDeleteConfirmation) {
+            Button("删除", role: .destructive) {
+                viewModel.deleteOOTDRecord(for: categoryId, on: date)
+                dismiss()
+            }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("将移除该日的穿搭记录，此操作不可恢复。")
         }
         .presentationDetents([.medium, .large])
     }
@@ -3320,97 +3645,37 @@ private struct OutfitRankingsHubView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 ForEach(OutfitHubRankingKind.allCases) { kind in
-                    OutfitRankingPreviewSection(
-                        viewModel: viewModel,
-                        categoryId: categoryId,
-                        kind: kind,
-                        onShowAll: { selectedKind = kind }
+                    OutfitRankingPreviewCard(
+                        title: kind.title,
+                        headerTrailing: .chevronButton { selectedKind = kind },
+                        emptyMessage: "暂无数据",
+                        rows: previewRows(for: kind)
                     )
                 }
             }
             .padding(.horizontal, 20)
             .padding(.top, 12)
-            .padding(.bottom, 24)
         }
+        .mindFlowScrollContentBottomInset()
         .background(lifePageBackground)
         .navigationTitle("排行榜")
         .navigationBarTitleDisplayMode(.inline)
     }
-}
 
-private struct OutfitRankingPreviewSection: View {
-    @ObservedObject var viewModel: DashboardViewModel
-    let categoryId: UUID
-    let kind: OutfitHubRankingKind
-    let onShowAll: () -> Void
-
-    private var rowSpacing: CGFloat {
-        OutfitPageCardMetrics.rankingPreviewRowSpacing
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .center) {
-                Text(kind.title)
-                    .font(.headline)
-                    .foregroundStyle(MindFlowFormSheetStyle.accent)
-                Spacer(minLength: 8)
-                Button("查看全部", action: onShowAll)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(MindFlowFormSheetStyle.accent)
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, OutfitPageCardMetrics.titleTopInset)
-            .padding(.bottom, OutfitPageCardMetrics.favoriteRankingHeaderBottomSpacing)
-
-            if kind.usesBrandEntries {
-                let brands = Array(viewModel.outfitBrandRanking(in: categoryId).prefix(3))
-                if brands.isEmpty {
-                    emptyRankingPlaceholder
-                } else {
-                    VStack(spacing: rowSpacing) {
-                        ForEach(Array(brands.enumerated()), id: \.element.id) { index, entry in
-                            OutfitHubBrandRankingRowView(
-                                rank: index + 1,
-                                brand: entry.brand,
-                                count: entry.count,
-                                isCompact: true
-                            )
-                        }
-                    }
-                    .padding(.horizontal, 8)
-                    .padding(.bottom, OutfitPageCardMetrics.contentBottomInset)
-                }
-            } else {
-                let items = Array(viewModel.outfitRankingItems(in: categoryId, kind: kind).prefix(3))
-                if items.isEmpty {
-                    emptyRankingPlaceholder
-                } else {
-                    VStack(spacing: rowSpacing) {
-                        ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                            WardrobeFavoriteRankingRowView(
-                                rank: index + 1,
-                                item: item,
-                                isCompact: true,
-                                metricText: viewModel.outfitRankingMetric(for: item, kind: kind)
-                            )
-                        }
-                    }
-                    .padding(.horizontal, 8)
-                    .padding(.bottom, OutfitPageCardMetrics.contentBottomInset)
-                }
+    private func previewRows(for kind: OutfitHubRankingKind) -> [OutfitRankingPreviewRowData] {
+        if kind.usesBrandEntries {
+            return Array(viewModel.outfitBrandRanking(in: categoryId).prefix(3)).enumerated().map { index, entry in
+                OutfitRankingPreviewRowData.brand(rank: index + 1, brand: entry.brand, count: entry.count)
             }
         }
-        .todoPanelCardChrome()
-    }
-
-    private var emptyRankingPlaceholder: some View {
-        Text("暂无数据")
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 16)
-            .padding(.bottom, OutfitPageCardMetrics.contentBottomInset)
+        return Array(viewModel.outfitRankingItems(in: categoryId, kind: kind).prefix(3)).enumerated().map { index, item in
+            OutfitRankingPreviewRowData.wardrobeItem(
+                rank: index + 1,
+                item: item,
+                kind: kind,
+                metricValue: viewModel.outfitRankingMetricValue(for: item, kind: kind)
+            )
+        }
     }
 }
 
@@ -3420,101 +3685,63 @@ private struct OutfitRankingFullListView: View {
     let kind: OutfitHubRankingKind
 
     @State private var selectedDetailItemId: UUID?
+    @State private var selectedWardrobeGroup: String?
+
+    private var filteredItems: [WardrobeItem] {
+        let items = viewModel.outfitRankingItems(in: categoryId, kind: kind)
+        guard let selectedWardrobeGroup else { return items }
+        return items.filter { $0.wardrobeGroup == selectedWardrobeGroup }
+    }
 
     var body: some View {
         ScrollView {
-            if kind.usesBrandEntries {
-                let brands = viewModel.outfitBrandRanking(in: categoryId)
-                if brands.isEmpty {
-                    emptyListPlaceholder
+            VStack(alignment: .leading, spacing: 16) {
+                if kind.usesBrandEntries {
+                    brandRankingContent
                 } else {
-                    VStack(spacing: 8) {
-                        ForEach(Array(brands.enumerated()), id: \.element.id) { index, entry in
-                            OutfitHubBrandRankingRowView(
-                                rank: index + 1,
-                                brand: entry.brand,
-                                count: entry.count
-                            )
-                        }
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.top, 12)
-                }
-            } else {
-                let items = viewModel.outfitRankingItems(in: categoryId, kind: kind)
-                if items.isEmpty {
-                    emptyListPlaceholder
-                } else {
-                    VStack(spacing: 8) {
-                        ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-                            Button {
-                                selectedDetailItemId = item.id
-                            } label: {
-                                WardrobeFavoriteRankingRowView(
-                                    rank: index + 1,
-                                    item: item,
-                                    metricText: viewModel.outfitRankingMetric(for: item, kind: kind)
-                                )
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.top, 12)
+                    itemRankingContent
                 }
             }
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
         }
-        .padding(.bottom, 24)
+        .mindFlowScrollContentBottomInset()
         .background(lifePageBackground)
-        .navigationTitle(kind.title)
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .navigationDestination(item: $selectedDetailItemId) { itemId in
             WardrobeItemDetailView(viewModel: viewModel, itemId: itemId)
         }
     }
 
-    private var emptyListPlaceholder: some View {
-        Text("暂无数据")
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 20)
-            .padding(.top, 24)
+    @ViewBuilder
+    private var brandRankingContent: some View {
+        OutfitRankingFullPageHeader(
+            kind: kind,
+            selectedWardrobeGroup: $selectedWardrobeGroup
+        )
+
+        OutfitRankingFullBrandRankingBody(
+            entries: viewModel.outfitBrandRanking(in: categoryId)
+        )
+    }
+
+    @ViewBuilder
+    private var itemRankingContent: some View {
+        OutfitRankingFullPageHeader(
+            kind: kind,
+            selectedWardrobeGroup: $selectedWardrobeGroup
+        )
+
+        OutfitRankingFullItemRankingBody(
+            kind: kind,
+            items: filteredItems,
+            metricValue: { viewModel.outfitRankingMetricValue(for: $0, kind: kind) },
+            onSelect: { selectedDetailItemId = $0 }
+        )
     }
 }
 
-private struct OutfitHubBrandRankingRowView: View {
-    let rank: Int
-    let brand: String
-    let count: Int
-    var isCompact: Bool = false
-
-    private var rankColor: Color {
-        WardrobeRankPalette.foregroundColor(for: rank)
-    }
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Text("#\(rank)")
-                .font(isCompact ? .subheadline.weight(.bold) : .headline.weight(.bold))
-                .foregroundStyle(rankColor)
-                .frame(width: 32, alignment: .leading)
-
-            Text(brand.isEmpty ? "未命名品牌" : brand)
-                .font(isCompact ? .subheadline.weight(.medium) : .body.weight(.medium))
-                .foregroundStyle(.primary)
-                .lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            Text("\(count)件")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(rankColor)
-        }
-        .padding(.vertical, isCompact ? 10 : 14)
-        .padding(.horizontal, isCompact ? 12 : 16)
-        .mindFlowListRowCardChrome()
-    }
-}
 
 private struct OutfitResearchTimeSheet: View {
     @ObservedObject var viewModel: DashboardViewModel
@@ -3572,6 +3799,7 @@ private struct OutfitPageSettingsSheet: View {
                 }
             }
             .scrollContentBackground(.hidden)
+            .mindFlowScrollContentBottomInset()
             .background(lifePageBackground)
             .navigationTitle("设置")
             .navigationBarTitleDisplayMode(.inline)
@@ -3599,6 +3827,7 @@ class DashboardViewModel: ObservableObject {
     @Published private(set) var categories: [LifeCategory] = []
     @Published private(set) var detailItems: [LifeDetailItem] = []
     @Published private(set) var wardrobeItems: [WardrobeItem] = []
+    @Published private(set) var menuItems: [MenuItem] = []
     @Published private(set) var outfitPlansByCategoryId: [UUID: OutfitPlan] = [:]
     @Published private(set) var ootdHistoryRecords: [OOTDHistoryRecord] = []
     @Published var outfitPageCardSettings = OutfitPageCardSettings()
@@ -3631,9 +3860,44 @@ class DashboardViewModel: ObservableObject {
     static let rowSlideOutDuration: TimeInterval = 0.22
     static var rowSlideOutAnimation: Animation { .easeOut(duration: rowSlideOutDuration) }
 
+    private let repository = MindFlowRepository.shared
+
     init() {
-        loadSampleData()
+        reloadFromStore()
         applyPendingOOTDWearCounts()
+        persistDashboard()
+
+        NotificationCenter.default.addObserver(
+            forName: .mindFlowDataDidReset,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.reloadFromStore()
+        }
+    }
+
+    private func reloadFromStore() {
+        let state = repository.loadDashboard()
+        categories = state.categories
+        detailItems = state.detailItems
+        wardrobeItems = state.wardrobeItems
+        menuItems = state.menuItems
+        outfitPlansByCategoryId = state.outfitPlansByCategoryId
+        ootdHistoryRecords = state.ootdHistoryRecords
+        outfitPageCardSettings = state.outfitPageCardSettings
+        outfitResearchTimeSeconds = OutfitResearchTimeStore.totalSeconds
+    }
+
+    private func persistDashboard() {
+        repository.saveDashboard(
+            categories: categories,
+            detailItems: detailItems,
+            wardrobeItems: wardrobeItems,
+            menuItems: menuItems,
+            outfitPlansByCategoryId: outfitPlansByCategoryId,
+            ootdHistoryRecords: ootdHistoryRecords,
+            outfitPageCardSettings: outfitPageCardSettings
+        )
     }
 
     func registerListScreen(parentId: UUID?) {
@@ -3716,6 +3980,26 @@ class DashboardViewModel: ObservableObject {
         wardrobeItems.filter { $0.categoryId == categoryId }
     }
 
+    func menuItems(in categoryId: UUID) -> [MenuItem] {
+        menuItems.filter { $0.categoryId == categoryId }
+    }
+
+    func menuLibraryStats(for categoryId: UUID) -> MenuLibraryStats {
+        let items = menuItems(in: categoryId)
+        let signatureCount = items.filter { $0.status == .signature }.count
+        let proficientCount = items.filter { $0.status == .proficient }.count
+        let practicingCount = items.filter { $0.status == .practicing }.count
+        let wantToLearnCount = items.filter { $0.status == .wantToLearn }.count
+        return MenuLibraryStats(
+            masteredCount: items.filter(\.status.isMastered).count,
+            weeklyDelta: 2,
+            signatureCount: signatureCount,
+            proficientCount: proficientCount,
+            practicingCount: practicingCount,
+            wantToLearnCount: wantToLearnCount
+        )
+    }
+
     func wardrobeItem(withId id: UUID) -> WardrobeItem? {
         wardrobeItems.first { $0.id == id }
     }
@@ -3752,12 +4036,14 @@ class DashboardViewModel: ObservableObject {
         var plan = outfitPlan(for: item.categoryId)
         plan.appendItem(item.id, for: slot)
         outfitPlansByCategoryId[item.categoryId] = plan
+        persistDashboard()
     }
 
     func removeFromOutfitPlan(_ item: WardrobeItem) {
         var plan = outfitPlan(for: item.categoryId)
         plan.removeAllReferences(to: item.id)
         outfitPlansByCategoryId[item.categoryId] = plan
+        persistDashboard()
     }
 
     @discardableResult
@@ -3791,6 +4077,7 @@ class DashboardViewModel: ObservableObject {
             )
         )
         outfitPlansByCategoryId[categoryId] = OutfitPlan()
+        persistDashboard()
         return true
     }
 
@@ -3807,6 +4094,7 @@ class DashboardViewModel: ObservableObject {
             record.wearCountApplied = true
             ootdHistoryRecords[index] = record
         }
+        persistDashboard()
     }
 
     func ootdMarkedDates(for categoryId: UUID, in month: Date) -> Set<Date> {
@@ -3846,6 +4134,38 @@ class DashboardViewModel: ObservableObject {
         }
     }
 
+    @discardableResult
+    func deleteOOTDRecord(for categoryId: UUID, on date: Date) -> Bool {
+        let calendar = Calendar.current
+        let day = calendar.startOfDay(for: date)
+        var didDelete = false
+
+        if let index = ootdHistoryRecords.firstIndex(where: { $0.categoryId == categoryId && $0.date == day }) {
+            let record = ootdHistoryRecords.remove(at: index)
+            didDelete = true
+            let items = outfitPlanDisplayItems(for: record.plan)
+            if record.wearCountApplied {
+                for item in items {
+                    decrementWearCount(for: item.id, removedWearDate: day)
+                }
+            } else {
+                for item in items {
+                    revertLastWearDateIfNeeded(for: item.id, on: day)
+                }
+            }
+        }
+
+        for index in wardrobeItems.indices where wardrobeItems[index].categoryId == categoryId {
+            guard let lastWearDate = wardrobeItems[index].lastWearDate else { continue }
+            guard calendar.startOfDay(for: lastWearDate) == day else { continue }
+            wardrobeItems[index].lastWearDate = nil
+            didDelete = true
+        }
+
+        persistDashboard()
+        return didDelete
+    }
+
     func outfitItems(for plan: OutfitPlan, slot: OutfitSlot) -> [WardrobeItem] {
         plan.itemIds(for: slot).compactMap { wardrobeItem(withId: $0) }
     }
@@ -3861,6 +4181,20 @@ class DashboardViewModel: ObservableObject {
         wardrobeItems[index].lastWearDate = Calendar.current.startOfDay(for: resolvedDate)
     }
 
+    private func decrementWearCount(for itemId: UUID, removedWearDate: Date) {
+        guard let index = wardrobeItems.firstIndex(where: { $0.id == itemId }) else { return }
+        wardrobeItems[index].wearCount = max(0, wardrobeItems[index].wearCount - 1)
+        revertLastWearDateIfNeeded(for: itemId, on: removedWearDate)
+    }
+
+    private func revertLastWearDateIfNeeded(for itemId: UUID, on date: Date) {
+        guard let index = wardrobeItems.firstIndex(where: { $0.id == itemId }) else { return }
+        guard let lastWearDate = wardrobeItems[index].lastWearDate else { return }
+        if Calendar.current.isDate(lastWearDate, inSameDayAs: date) {
+            wardrobeItems[index].lastWearDate = nil
+        }
+    }
+
     private func updateLastWearDate(for itemId: UUID, on date: Date) {
         guard let index = wardrobeItems.firstIndex(where: { $0.id == itemId }) else { return }
         wardrobeItems[index].lastWearDate = Calendar.current.startOfDay(for: date)
@@ -3869,36 +4203,43 @@ class DashboardViewModel: ObservableObject {
     func updateWardrobeBrand(id: UUID, brand: String) {
         guard let index = wardrobeItems.firstIndex(where: { $0.id == id }) else { return }
         wardrobeItems[index].brand = brand.trimmingCharacters(in: .whitespacesAndNewlines)
+        persistDashboard()
     }
 
     func updateWardrobeName(id: UUID, name: String) {
         guard let index = wardrobeItems.firstIndex(where: { $0.id == id }) else { return }
         wardrobeItems[index].name = name
+        persistDashboard()
     }
 
     func updateWardrobeColor(id: UUID, color: String) {
         guard let index = wardrobeItems.firstIndex(where: { $0.id == id }) else { return }
         wardrobeItems[index].color = color.trimmingCharacters(in: .whitespacesAndNewlines)
+        persistDashboard()
     }
 
     func updateWardrobeFabric(id: UUID, fabric: String) {
         guard let index = wardrobeItems.firstIndex(where: { $0.id == id }) else { return }
         wardrobeItems[index].fabric = fabric.trimmingCharacters(in: .whitespacesAndNewlines)
+        persistDashboard()
     }
 
     func updateWardrobePurchasePrice(id: UUID, price: Double) {
         guard let index = wardrobeItems.firstIndex(where: { $0.id == id }) else { return }
         wardrobeItems[index].purchasePrice = max(0, price)
+        persistDashboard()
     }
 
     func updateWardrobePurchaseDate(id: UUID, date: Date) {
         guard let index = wardrobeItems.firstIndex(where: { $0.id == id }) else { return }
         wardrobeItems[index].purchaseDate = date
+        persistDashboard()
     }
 
     func toggleWardrobeSeason(id: UUID, label: String) {
         guard let index = wardrobeItems.firstIndex(where: { $0.id == id }) else { return }
         wardrobeItems[index].season = WardrobeSeasonCatalog.toggled(label, in: wardrobeItems[index].season)
+        persistDashboard()
     }
 
     /// 同分类 + 同品种（如所有 T 恤）的购买均价。
@@ -3999,6 +4340,7 @@ class DashboardViewModel: ObservableObject {
 
     func setOutfitCardVisible(_ kind: OutfitPageCardKind, visible: Bool) {
         outfitPageCardSettings.setVisible(kind, visible: visible)
+        persistDashboard()
     }
 
     func outfitRankingItems(in categoryId: UUID, kind: OutfitHubRankingKind) -> [WardrobeItem] {
@@ -4071,6 +4413,24 @@ class DashboardViewModel: ObservableObject {
         }
     }
 
+    func outfitRankingMetricValue(for item: WardrobeItem, kind: OutfitHubRankingKind) -> Int {
+        switch kind {
+        case .favorite:
+            return item.favoriteScores.overallScore ?? 0
+        case .price:
+            return max(0, Int(item.purchasePrice.rounded()))
+        case .wearCount:
+            return item.wearCount
+        case .costPerWear:
+            guard item.wearCount > 0 else { return 0 }
+            return max(0, Int(costPerWearValue(for: item).rounded()))
+        case .consecutiveWearDays:
+            return consecutiveWearDays(for: item)
+        case .brandCount:
+            return 0
+        }
+    }
+
     func consecutiveWearDays(for item: WardrobeItem) -> Int {
         let calendar = Calendar.current
         let wearDates = ootdHistoryRecords
@@ -4103,6 +4463,7 @@ class DashboardViewModel: ObservableObject {
     func updateFavoriteScores(id: UUID, scores: WardrobeFavoriteScores) {
         guard let index = wardrobeItems.firstIndex(where: { $0.id == id }) else { return }
         wardrobeItems[index].favoriteScores = scores
+        persistDashboard()
     }
 
     func addWardrobeItem(
@@ -4133,6 +4494,7 @@ class DashboardViewModel: ObservableObject {
                 purchaseDate: purchaseDate
             )
         )
+        persistDashboard()
     }
 
     func updateWardrobeItem(
@@ -4159,6 +4521,7 @@ class DashboardViewModel: ObservableObject {
         wardrobeItems[index].season = season.trimmingCharacters(in: .whitespacesAndNewlines)
         wardrobeItems[index].purchasePrice = purchasePrice
         wardrobeItems[index].purchaseDate = purchaseDate
+        persistDashboard()
     }
 
     func deleteWardrobeItem(id: UUID) {
@@ -4170,6 +4533,7 @@ class DashboardViewModel: ObservableObject {
                 outfitPlansByCategoryId[categoryId] = plan
             }
         }
+        persistDashboard()
     }
 
     func searchCategories(matching query: String) -> [LifeCategory] {
@@ -4211,6 +4575,7 @@ class DashboardViewModel: ObservableObject {
                 parentId: parentId
             )
         )
+        persistDashboard()
     }
 
     func updateCategory(id: UUID, title: String, icon: String, accentHex: String) {
@@ -4220,6 +4585,7 @@ class DashboardViewModel: ObservableObject {
         categories[index].title = trimmed
         categories[index].icon = icon
         categories[index].accentHex = accentHex
+        persistDashboard()
     }
 
     func deleteCategory(id: UUID) {
@@ -4232,6 +4598,7 @@ class DashboardViewModel: ObservableObject {
 
     func deleteDetailItem(id: UUID) {
         detailItems.removeAll { $0.id == id }
+        persistDashboard()
     }
 
     func deleteDetailItemFromSwipe(id: UUID) {
@@ -4277,6 +4644,7 @@ class DashboardViewModel: ObservableObject {
             slidingOutDetailItemIds.remove(id)
             detailItemSlideOutSignById[id] = nil
             detailItems.removeAll { $0.id == id }
+            persistDashboard()
         }
     }
 
@@ -4287,6 +4655,7 @@ class DashboardViewModel: ObservableObject {
         }
         detailItems.removeAll { $0.categoryId == id }
         categories.removeAll { $0.id == id }
+        persistDashboard()
     }
 
     func addDetailItem(title: String, note: String?, categoryId: UUID) {
@@ -4300,17 +4669,27 @@ class DashboardViewModel: ObservableObject {
                 note: (noteTrimmed?.isEmpty == false) ? noteTrimmed : nil
             )
         )
+        persistDashboard()
     }
 
-    private func loadSampleData() {
+    static func makeSampleDashboardState() -> MindFlowRepository.DashboardState {
+        loadSampleDataIntoState()
+    }
+
+    private static func loadSampleDataIntoState() -> MindFlowRepository.DashboardState {
         let clothing = LifeCategory(title: "穿搭", icon: "tshirt")
         let food = LifeCategory(title: "饮食", icon: "fork.knife")
-        let homeCook = LifeCategory(title: "家常", icon: "frying.pan", parentId: food.id)
-        let diningOut = LifeCategory(title: "外食", icon: "cup.and.saucer", parentId: food.id)
+        let homeCook = LifeCategory(title: "烹饪", icon: "frying.pan", parentId: food.id)
+        let diningOut = LifeCategory(title: "探店", icon: "cup.and.saucer", parentId: food.id)
+        let gaming = LifeCategory(title: "游戏", icon: "gamecontroller.fill")
+        let onlineGame = LifeCategory(title: "在线游戏", icon: "network", parentId: gaming.id)
+        let singlePlayerGame = LifeCategory(title: "单机游戏", icon: "gamecontroller", parentId: gaming.id)
         let housing = LifeCategory(title: "居住", icon: "house")
         let travel = LifeCategory(title: "旅行", icon: "car")
 
-        categories = [clothing, food, homeCook, diningOut, housing, travel]
+        let categories = [
+            clothing, food, homeCook, diningOut, gaming, onlineGame, singlePlayerGame, housing, travel
+        ]
 
         let calendar = Calendar.current
         let sampleDates: [Date] = [
@@ -4332,7 +4711,7 @@ class DashboardViewModel: ObservableObject {
             calendar.date(byAdding: .day, value: -3, to: Date()) ?? .now
         ]
 
-        wardrobeItems = [
+        let wardrobeItems = [
             WardrobeItem(
                 categoryId: clothing.id,
                 name: "纯棉圆领T恤",
@@ -4506,7 +4885,7 @@ class DashboardViewModel: ObservableObject {
         samplePlan3.appendItem(wardrobeItems[6].id, for: .top)
         samplePlan3.appendItem(wardrobeItems[9].id, for: .shoes)
 
-        ootdHistoryRecords = [
+        let ootdHistoryRecords = [
             OOTDHistoryRecord(
                 categoryId: clothing.id,
                 date: calendar.date(byAdding: .day, value: -1, to: Date()) ?? .now,
@@ -4527,12 +4906,72 @@ class DashboardViewModel: ObservableObject {
             )
         ]
 
-        detailItems = [
+        let detailItems = [
             LifeDetailItem(categoryId: homeCook.id, title: "本周买菜清单", note: "蔬菜、蛋白、水果"),
             LifeDetailItem(categoryId: diningOut.id, title: "周末探店", note: "日料 / 轻食"),
+            LifeDetailItem(categoryId: onlineGame.id, title: "原神", note: "每日委托 / 树脂"),
+            LifeDetailItem(categoryId: onlineGame.id, title: "王者荣耀", note: "排位赛"),
+            LifeDetailItem(categoryId: singlePlayerGame.id, title: "塞尔达传说", note: "王国之泪"),
+            LifeDetailItem(categoryId: singlePlayerGame.id, title: "空洞骑士", note: "神居挑战"),
             LifeDetailItem(categoryId: housing.id, title: "客厅收纳整理"),
             LifeDetailItem(categoryId: travel.id, title: "周末骑行计划", note: "滨河路线 15km")
         ]
+
+        return MindFlowRepository.DashboardState(
+            categories: categories,
+            detailItems: detailItems,
+            wardrobeItems: wardrobeItems,
+            menuItems: Self.sampleMenuItems(for: homeCook.id),
+            outfitPlansByCategoryId: [:],
+            ootdHistoryRecords: ootdHistoryRecords,
+            outfitPageCardSettings: OutfitPageCardSettings()
+        )
+    }
+
+    private static func sampleMenuItems(for categoryId: UUID) -> [MenuItem] {
+        let specs: [(String, MenuCuisineKind, MenuItemStatus, Int)] = [
+            ("番茄炒蛋", .chineseHome, .signature, 18),
+            ("红烧肉", .chineseHome, .signature, 12),
+            ("清炒时蔬", .chineseHome, .proficient, 15),
+            ("鱼香肉丝", .chineseHome, .proficient, 9),
+            ("宫保鸡丁", .chineseHome, .proficient, 11),
+            ("麻婆豆腐", .chineseHome, .practicing, 6),
+            ("糖醋里脊", .chineseHome, .practicing, 4),
+            ("蒜蓉西兰花", .chineseHome, .practicing, 7),
+            ("可乐鸡翅", .chineseHome, .wantToLearn, 2),
+            ("回锅肉", .chineseHome, .wantToLearn, 1),
+            ("葱油拌面", .noodles, .signature, 10),
+            ("西红柿鸡蛋面", .noodles, .proficient, 8),
+            ("牛肉拉面", .noodles, .practicing, 3),
+            ("饺子", .noodles, .practicing, 5),
+            ("阳春面", .noodles, .wantToLearn, 0),
+            ("紫菜蛋花汤", .soup, .proficient, 6),
+            ("玉米排骨汤", .soup, .practicing, 2),
+            ("味噌汤", .soup, .wantToLearn, 1),
+            ("蒜蓉虾", .quick, .signature, 9),
+            ("照烧鸡腿", .quick, .proficient, 7),
+            ("香煎三文鱼", .quick, .practicing, 4),
+            ("凯撒沙拉", .quick, .practicing, 3),
+            ("牛油果吐司", .quick, .wantToLearn, 1),
+            ("黄油意面", .quick, .wantToLearn, 0),
+            ("牛排", .western, .proficient, 5),
+            ("烤时蔬", .western, .practicing, 2),
+            ("三明治", .western, .wantToLearn, 1),
+            ("寿司卷", .japanese, .practicing, 3),
+            ("照烧饭", .japanese, .wantToLearn, 1),
+            ("戚风蛋糕", .baking, .practicing, 2),
+            ("曲奇饼干", .baking, .wantToLearn, 0),
+            ("创意拼盘", .other, .wantToLearn, 0)
+        ]
+        return specs.map { name, cuisine, status, cookCount in
+            MenuItem(
+                categoryId: categoryId,
+                name: name,
+                cuisine: cuisine,
+                status: status,
+                cookCount: cookCount
+            )
+        }
     }
 }
 
@@ -4629,7 +5068,8 @@ private struct AddLifeCategoryPanel: View {
                 .padding(.top, 14)
                 .padding(.bottom, 8)
             }
-            .scrollDismissesKeyboard(.interactively)
+                .scrollDismissesKeyboard(.interactively)
+                .mindFlowScrollContentBottomInset()
 
             Button(action: submit) {
                 Text(submitTitle)
@@ -4932,7 +5372,8 @@ private struct AddLifeDetailPanel: View {
                 .padding(.top, 14)
                 .padding(.bottom, 8)
             }
-            .scrollDismissesKeyboard(.interactively)
+                .scrollDismissesKeyboard(.interactively)
+                .mindFlowScrollContentBottomInset()
 
             Button(action: submit) {
                 Text("创建")
@@ -5127,7 +5568,8 @@ private struct AddLifeWardrobePanel: View {
                 .padding(.top, 14)
                 .padding(.bottom, 8)
             }
-            .scrollDismissesKeyboard(.interactively)
+                .scrollDismissesKeyboard(.interactively)
+                .mindFlowScrollContentBottomInset()
 
             Button(action: submit) {
                 Text(submitTitle)

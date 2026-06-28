@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct ProfileSettingsView: View {
+    @State private var showingResetConfirm = false
+
     var body: some View {
         ZStack {
             LinearGradient(
@@ -31,6 +33,12 @@ struct ProfileSettingsView: View {
                     settingsGroup(title: "应用") {
                         settingsRow(icon: "paintbrush", title: "外观")
                         settingsRow(icon: "icloud", title: "数据与同步")
+                        Button {
+                            showingResetConfirm = true
+                        } label: {
+                            settingsRow(icon: "trash", title: "清除所有数据", showsChevron: false)
+                        }
+                        .buttonStyle(.plain)
                         settingsRow(icon: "questionmark.circle", title: "帮助与反馈")
                     }
 
@@ -39,10 +47,18 @@ struct ProfileSettingsView: View {
                     }
                 }
                 .padding(.horizontal, 20)
-                .padding(.bottom, 120)
             }
+            .mindFlowScrollContentBottomInset()
         }
         .navigationBarHidden(true)
+        .alert("清除所有数据？", isPresented: $showingResetConfirm) {
+            Button("取消", role: .cancel) {}
+            Button("清除", role: .destructive) {
+                MindFlowRepository.shared.resetAllData()
+            }
+        } message: {
+            Text("将删除所有分类、待办、衣物等本地数据，并恢复为初始示例数据。此操作不可撤销。")
+        }
     }
 
     @ViewBuilder
@@ -61,24 +77,31 @@ struct ProfileSettingsView: View {
         }
     }
 
-    private func settingsRow(icon: String, title: String, detail: String? = nil) -> some View {
+    private func settingsRow(
+        icon: String,
+        title: String,
+        detail: String? = nil,
+        showsChevron: Bool = true
+    ) -> some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
                 .font(.body)
-                .foregroundStyle(Color(hex: "#2B5748"))
+                .foregroundStyle(title == "清除所有数据" ? .red : Color(hex: "#2B5748"))
                 .frame(width: 28)
             Text(title)
                 .font(.body)
-                .foregroundStyle(Color(hex: "#2B5748"))
+                .foregroundStyle(title == "清除所有数据" ? .red : Color(hex: "#2B5748"))
             Spacer()
             if let detail {
                 Text(detail)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
-            Image(systemName: "chevron.right")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(Color.secondary.opacity(0.6))
+            if showsChevron {
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.secondary.opacity(0.6))
+            }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 14)

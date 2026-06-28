@@ -1,6 +1,11 @@
 import SwiftUI
 
-/// 生活页列表行卡片（详情条目、今日穿搭等）统一外观。
+/// 全 App 滚动页面底部可滚动留白（可调试）
+enum MindFlowScrollMetrics {
+    static let bottomContentInset: CGFloat = 100
+}
+
+/// 分类页列表行卡片（详情条目、今日穿搭等）统一外观。
 enum MindFlowListRowCardStyle {
     static let cornerRadius: CGFloat = 12
     static let background = Color(.systemBackground)
@@ -28,5 +33,9 @@ extension View {
         padding(.vertical, MindFlowListRowCardStyle.verticalPadding)
             .padding(.leading, MindFlowListRowCardStyle.leadingPadding)
             .padding(.trailing, MindFlowListRowCardStyle.trailingPadding)
+    }
+
+    func mindFlowScrollContentBottomInset() -> some View {
+        contentMargins(.bottom, MindFlowScrollMetrics.bottomContentInset, for: .scrollContent)
     }
 }

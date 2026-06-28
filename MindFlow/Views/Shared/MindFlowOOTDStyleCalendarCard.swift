@@ -10,28 +10,64 @@ enum MindFlowOOTDStyleCalendarDayInteraction {
 enum MindFlowOOTDStyleCalendarMetrics {
     static let titleTopInset: CGFloat = 4
     static let titleBottomInset: CGFloat = 6
+    /// OOTD 日历卡片：标题行与下方星期/日期网格的间距（可调试）
+    static let ootdCalendarCardTitleBottomSpacing: CGFloat = 20
+    /// OOTD 日历卡片：右上角年月标题字号（可调试）
+    static let ootdCalendarMonthTitleFont: Font = .body.weight(.semibold)
     static let contentBottomInset: CGFloat = 16
     static let gridSpacing: CGFloat = 4
-    static let weekdayHeaderBottomPadding: CGFloat = 8
+    static let weekdayHeaderBottomPadding: CGFloat = 4
     static let monthControlRowHeight: CGFloat = 36
+    /// 月历网格最多 6 行，切换月份动画时统一高度避免抖动
+    static let maxGridRowCount: Int = 6
+    /// 月份切换滑动动画时长（可调试）
+    static let monthChangeDuration: TimeInterval = 0.32
+}
+
+private enum CalendarMonthSlideDirection {
+    case forward
+    case backward
+}
+
+private struct CalendarMonthIdentity: Hashable {
+    let year: Int
+    let month: Int
+
+    static func from(_ date: Date, calendar: Calendar = .current) -> CalendarMonthIdentity {
+        CalendarMonthIdentity(
+            year: calendar.component(.year, from: date),
+            month: calendar.component(.month, from: date)
+        )
+    }
 }
 
 /// 与穿搭页 OOTD 日历一致的月历卡片，可配置标题与日期交互。
 struct MindFlowOOTDStyleCalendarCard: View {
-    let title: String
+    var title: String? = nil
     @Binding var displayedMonth: Date
     let isDayMarked: (Date) -> Bool
     let onDayTap: (Date) -> Void
     var dayInteraction: MindFlowOOTDStyleCalendarDayInteraction = .ootdHistory
+    /// 为 true 时，点左右箭头切换月份会播放横向滑动动画（不可手势切月）
+    var animatesMonthChanges: Bool = false
+    /// 标题行与下方日历表间距；nil 时使用 `titleBottomInset`
+    var headerBottomSpacing: CGFloat? = nil
     var appliesPanelChrome: Bool = true
     var contentWidth: CGFloat?
+
+    @State private var monthSlideDirection: CalendarMonthSlideDirection = .forward
 
     private var weekdaySymbols: [String] {
         ["一", "二", "三", "四", "五", "六", "日"]
     }
 
     private var monthNavigationTitle: String {
-        displayedMonth.formatted(.dateTime.year().month(.wide))
+        displayedMonth.formatted(
+            .dateTime
+                .year()
+                .month(.wide)
+                .locale(Locale(identifier: "zh_CN"))
+        )
     }
 
     var body: some View {
@@ -52,45 +88,14 @@ struct MindFlowOOTDStyleCalendarCard: View {
 
     @ViewBuilder
     private func calendarBody(cellSize: CGFloat) -> some View {
-        let gridDays = Self.gridDays(for: displayedMonth)
-        let rowCount = max(1, gridDays.count / 7)
-        let gridHeight = CGFloat(rowCount) * cellSize
-            + CGFloat(max(0, rowCount - 1)) * MindFlowOOTDStyleCalendarMetrics.gridSpacing
+        let animatedGridHeight = gridHeight(
+            rowCount: MindFlowOOTDStyleCalendarMetrics.maxGridRowCount,
+            cellSize: cellSize
+        )
+        let naturalGridHeight = gridHeight(for: displayedMonth, cellSize: cellSize)
 
         VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .center) {
-                Text(title)
-                    .font(.headline)
-                    .foregroundStyle(MindFlowFormSheetStyle.accent)
-
-                Spacer(minLength: 8)
-
-                HStack(spacing: 4) {
-                    monthControlButton(systemName: "chevron.left") {
-                        displayedMonth = Calendar.current.date(
-                            byAdding: .month,
-                            value: -1,
-                            to: displayedMonth
-                        ) ?? displayedMonth
-                    }
-
-                    Text(monthNavigationTitle)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(MindFlowFormSheetStyle.accent)
-                        .frame(minWidth: 88)
-
-                    monthControlButton(systemName: "chevron.right") {
-                        displayedMonth = Calendar.current.date(
-                            byAdding: .month,
-                            value: 1,
-                            to: displayedMonth
-                        ) ?? displayedMonth
-                    }
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, MindFlowOOTDStyleCalendarMetrics.titleTopInset)
-            .padding(.bottom, MindFlowOOTDStyleCalendarMetrics.titleBottomInset)
+            monthHeaderRow
 
             HStack(spacing: MindFlowOOTDStyleCalendarMetrics.gridSpacing) {
                 ForEach(weekdaySymbols, id: \.self) { symbol in
@@ -103,45 +108,143 @@ struct MindFlowOOTDStyleCalendarCard: View {
             .padding(.horizontal, 16)
             .padding(.bottom, MindFlowOOTDStyleCalendarMetrics.weekdayHeaderBottomPadding)
 
-            LazyVGrid(
-                columns: Array(
-                    repeating: GridItem(.fixed(cellSize), spacing: MindFlowOOTDStyleCalendarMetrics.gridSpacing),
-                    count: 7
-                ),
-                spacing: MindFlowOOTDStyleCalendarMetrics.gridSpacing
-            ) {
-                ForEach(Array(gridDays.enumerated()), id: \.offset) { _, day in
-                    if let day {
-                        dayCell(day, cellSize: cellSize)
-                    } else {
-                        Color.clear
-                            .frame(width: cellSize, height: cellSize)
-                    }
+            if animatesMonthChanges {
+                ZStack {
+                    monthGrid(for: displayedMonth, cellSize: cellSize)
+                        .id(CalendarMonthIdentity.from(displayedMonth))
+                        .transition(monthGridTransition)
+                }
+                .frame(height: animatedGridHeight)
+                .clipped()
+            } else {
+                monthGrid(for: displayedMonth, cellSize: cellSize)
+                    .frame(height: naturalGridHeight)
+            }
+        }
+    }
+
+    private var monthGridTransition: AnyTransition {
+        switch monthSlideDirection {
+        case .forward:
+            return .asymmetric(
+                insertion: .move(edge: .trailing).combined(with: .opacity),
+                removal: .move(edge: .leading).combined(with: .opacity)
+            )
+        case .backward:
+            return .asymmetric(
+                insertion: .move(edge: .leading).combined(with: .opacity),
+                removal: .move(edge: .trailing).combined(with: .opacity)
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var monthHeaderRow: some View {
+        HStack(alignment: .center) {
+            if let title, !title.isEmpty {
+                Text(title)
+                    .font(.headline)
+                    .foregroundStyle(MindFlowFormSheetStyle.accent)
+
+                Spacer(minLength: 8)
+            } else {
+                Spacer(minLength: 0)
+            }
+
+            HStack(spacing: 4) {
+                monthControlButton(systemName: "chevron.left") {
+                    shiftMonth(by: -1)
+                }
+
+                Text(monthNavigationTitle)
+                    .font(MindFlowOOTDStyleCalendarMetrics.ootdCalendarMonthTitleFont)
+                    .foregroundStyle(MindFlowFormSheetStyle.accent)
+                    .frame(minWidth: 96)
+
+                monthControlButton(systemName: "chevron.right") {
+                    shiftMonth(by: 1)
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, MindFlowOOTDStyleCalendarMetrics.contentBottomInset)
-            .frame(height: gridHeight)
+
+            if title == nil || title?.isEmpty == true {
+                Spacer(minLength: 0)
+            }
         }
+        .padding(.horizontal, 16)
+        .padding(.top, MindFlowOOTDStyleCalendarMetrics.titleTopInset)
+        .padding(.bottom, headerBottomSpacing ?? MindFlowOOTDStyleCalendarMetrics.titleBottomInset)
+    }
+
+    private func shiftMonth(by offset: Int) {
+        guard offset != 0 else { return }
+        let applyChange = {
+            displayedMonth = Calendar.current.date(
+                byAdding: .month,
+                value: offset,
+                to: displayedMonth
+            ) ?? displayedMonth
+        }
+
+        guard animatesMonthChanges else {
+            applyChange()
+            return
+        }
+
+        monthSlideDirection = offset > 0 ? .forward : .backward
+        withAnimation(.easeInOut(duration: MindFlowOOTDStyleCalendarMetrics.monthChangeDuration)) {
+            applyChange()
+        }
+    }
+
+    @ViewBuilder
+    private func monthGrid(for month: Date, cellSize: CGFloat) -> some View {
+        let gridDays = Self.gridDays(for: month)
+        LazyVGrid(
+            columns: Array(
+                repeating: GridItem(.fixed(cellSize), spacing: MindFlowOOTDStyleCalendarMetrics.gridSpacing),
+                count: 7
+            ),
+            spacing: MindFlowOOTDStyleCalendarMetrics.gridSpacing
+        ) {
+            ForEach(Array(gridDays.enumerated()), id: \.offset) { _, day in
+                if let day {
+                    dayCell(day, cellSize: cellSize)
+                } else {
+                    Color.clear
+                        .frame(width: cellSize, height: cellSize)
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, MindFlowOOTDStyleCalendarMetrics.contentBottomInset)
     }
 
     private func cellSize(for width: CGFloat) -> CGFloat {
         (width - 32 - 6 * MindFlowOOTDStyleCalendarMetrics.gridSpacing) / 7
     }
 
+    private func gridHeight(for month: Date, cellSize: CGFloat) -> CGFloat {
+        let rowCount = max(1, Self.gridDays(for: month).count / 7)
+        return gridHeight(rowCount: rowCount, cellSize: cellSize)
+    }
+
+    private func gridHeight(rowCount: Int, cellSize: CGFloat) -> CGFloat {
+        CGFloat(rowCount) * cellSize
+            + CGFloat(max(0, rowCount - 1)) * MindFlowOOTDStyleCalendarMetrics.gridSpacing
+            + MindFlowOOTDStyleCalendarMetrics.contentBottomInset
+    }
+
     private func intrinsicHeight(forWidth width: CGFloat) -> CGFloat {
         let cellSize = cellSize(for: width)
-        let gridDays = Self.gridDays(for: displayedMonth)
-        let rowCount = max(1, gridDays.count / 7)
-        let gridHeight = CGFloat(rowCount) * cellSize
-            + CGFloat(max(0, rowCount - 1)) * MindFlowOOTDStyleCalendarMetrics.gridSpacing
+        let gridHeight = animatesMonthChanges
+            ? gridHeight(rowCount: MindFlowOOTDStyleCalendarMetrics.maxGridRowCount, cellSize: cellSize)
+            : gridHeight(for: displayedMonth, cellSize: cellSize)
         return MindFlowOOTDStyleCalendarMetrics.titleTopInset
             + MindFlowOOTDStyleCalendarMetrics.monthControlRowHeight
             + MindFlowOOTDStyleCalendarMetrics.titleBottomInset
             + 20
             + MindFlowOOTDStyleCalendarMetrics.weekdayHeaderBottomPadding
             + gridHeight
-            + MindFlowOOTDStyleCalendarMetrics.contentBottomInset
     }
 
     private func monthControlButton(systemName: String, action: @escaping () -> Void) -> some View {

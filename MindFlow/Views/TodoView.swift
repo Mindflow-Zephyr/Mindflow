@@ -46,12 +46,12 @@ private enum TodoCardLayoutMetrics {
     /// 「今日待办 / 今日完成」等小标题距卡片顶部的内边距
     static let titleTopInset: CGFloat = 14
     /// 小标题与下方列表的间距
-    static let titleBottomInset: CGFloat = 12
+    static let titleBottomInset: CGFloat = 3
     static let titleLineHeight: CGFloat = 22
     static var titleBarHeight: CGFloat { titleTopInset + titleLineHeight + titleBottomInset }
     static let listHorizontalPadding: CGFloat = 8
     static let listBottomPadding: CGFloat = 12
-    static let sectionSpacing: CGFloat = 14
+    static let sectionSpacing: CGFloat = 8
     /// 无待办时的内容区高度（尽量紧凑）
     static let emptyStateHeight: CGFloat = 38
     /// 有待办时：在 cardWidth 基础上额外增加的高度，形成固定大卡片
@@ -67,7 +67,7 @@ private enum TodoCardLayoutMetrics {
 /// 待办列表行卡片（单条待办）排版，可按需调整数值
 private enum TodoRowCardMetrics {
     /// 标题与副标题（时段 / 用时）间距
-    static let titleSubtitleSpacing: CGFloat = 10
+    static let titleSubtitleSpacing: CGFloat = 5
     /// 已完成「用时」字号（alarm 旁文字与图标同档）
     static let completedDurationFontSize: CGFloat = 13
     /// 分类胶囊字号（比标题 `.headline` 略小，可自行微调）
@@ -81,7 +81,7 @@ private enum TodoRowCardMetrics {
     /// 详情页时间行：三列布局 — 标题列宽（可调试）
     static let detailTimeRowTitleColumnWidth: CGFloat = 100
     /// 详情页时间行：年月日区域列宽（可调试）
-    static let detailTimeRowDateColumnWidth: CGFloat = 150
+    static let detailTimeRowDateColumnWidth: CGFloat = 170
     /// 详情页时间行：时间段区域列宽（可调试）
     static let detailTimeRowSlotColumnWidth: CGFloat = 70
     /// 详情页时间行：标题列左右内边距
@@ -90,40 +90,23 @@ private enum TodoRowCardMetrics {
     static let detailTimeCapsuleFillColor = Color(hex: "#88BDA4")
     /// 详情页时间行高度
     static let detailTimeRowHeight: CGFloat = 40
-    /// 详情页备注小标题距顶
-    static let detailNoteTitleTopPadding: CGFloat = 6
+    /// 详情页备注小标题
+    static let detailNoteSectionTitle = "备注"
     /// 详情页备注标题到输入框间距
     static let detailNoteTitleToInputSpacing: CGFloat = 8
-    /// 详情页备注输入框最小高度
-    static let detailNoteInputMinHeight: CGFloat = 36
-    /// 详情页备注逐行横线：单行内容区高度（与 TextEditor 行高对齐）
-    static let detailNoteInputRowHeight: CGFloat = 17
-    /// 详情页备注逐行横线：含行间距的有效行高（= rowHeight + lineSpacing）
-    static var detailNoteInputEffectiveRowHeight: CGFloat {
-        detailNoteInputRowHeight + detailNoteInputLineSpacing
-    }
     /// 详情页备注输入框字号
     static let detailNoteContentFont: Font = .subheadline.weight(.semibold)
-    /// 详情页备注输入框水平内边距
-    static let detailNoteInputHorizontalPadding: CGFloat = 10
-    /// 详情页备注输入框垂直内边距
-    static let detailNoteInputVerticalPadding: CGFloat = 6
-    /// 详情页备注正文相对横线网格额外下移
-    static let detailNoteInputContentTopInset: CGFloat = 3
-    /// 详情页备注输入框行间距（可调试，增大文本行距）
-    static let detailNoteInputLineSpacing: CGFloat = 10
-    /// 详情页备注单行最大字数（超出自动换行；实际以行宽测算为准，此为上限）
-    static let detailNoteInputMaxCharactersPerLine: Int = 30
-    /// 详情页备注文本相对横线的宽度比例（略小于横线，可调试）
-    static let detailNoteInputLineFillRatio: CGFloat = 0.94
-    /// 详情页备注单行额外放宽（汉字个数）
-    static let detailNoteInputExtraCharacterCount: Int = 1
-    /// 详情页备注横线相对输入区额外内缩（可调试）
-    static let detailNoteInputRuledLineInset: CGFloat = 2
-    /// 详情页备注最大行数
-    static let detailNoteInputMaxLines: Int = 5
-    /// 详情页备注输入框上下边框色透明度
-    static let detailNoteInputBorderOpacity: CGFloat = 0.22
+    /// 详情页备注行间距
+    static let detailNoteInputLineSpacing: CGFloat = 6
+    /// 详情页备注输入区固定可见行数（超出可滚动，无行数限制）
+    static let detailNoteInputVisibleLineCount: Int = 5
+    /// 详情页备注输入区固定高度（约 5 行文本）
+    static var detailNoteInputFixedHeight: CGFloat {
+        let base = UIFont.preferredFont(forTextStyle: .subheadline)
+        let font = UIFont.systemFont(ofSize: base.pointSize, weight: .semibold)
+        let lineHeight = font.lineHeight + detailNoteInputLineSpacing
+        return lineHeight * CGFloat(detailNoteInputVisibleLineCount) + 8
+    }
     /// 详情页备注空态占位文案
     static let detailNoteInputPlaceholder = "添加备注..."
     /// 详情页底部信息行卡片高度（创建 / 时长 / 分类）
@@ -144,12 +127,18 @@ private enum TodoRowCardMetrics {
     static let detailMetaChipTopPadding: CGFloat = 10
     /// 详情页底部信息卡标题/正文整体上移（可调试，负值上移）
     static let detailMetaChipVerticalOffset: CGFloat = -6
+    /// 计划时长两行显示时，标题纵向位置比例（可调试，越小越靠上）
+    static let detailMetaChipMultilineTitleVerticalRatio: CGFloat = 0.28
+    /// 计划时长两行显示时，正文纵向位置比例（可调试，越小越靠上）
+    static let detailMetaChipMultilineValueVerticalRatio: CGFloat = 0.68
+    /// 详情页「已完成」状态文字色
+    static let detailCompletedStatusTextColor = Color(hex: "#D4AF37")
     /// 详情页首卡距顶部的间距
     static let detailPageTopInset: CGFloat = 4
     /// 详情页 ScrollView 额外顶部留白（避免被导航栏遮挡）
     static let detailPageScrollTopInset: CGFloat = 8
     /// 详情页 ScrollView 底部留白（避免底部内容被遮挡）
-    static let detailPageScrollBottomInset: CGFloat = 16
+    static let detailPageScrollBottomInset: CGFloat = MindFlowScrollMetrics.bottomContentInset
     /// 详情页滚动区下边界：与底部自定义导航栏上沿对齐（72 + 46，见 MainTabView）
     static let detailPageBottomNavBarClearance: CGFloat = 118
     /// 详情页待办 / 备注卡片上下内边距（一致）
@@ -174,6 +163,7 @@ struct TodoView: View {
     @Binding var showingAddTodo: Bool
     @StateObject private var viewModel = TodoViewModel()     // 界面数据与逻辑模型
     @State private var showCompleted = false  // 未完成/已完成 UI状态
+    @State private var showRecurringTasksList = false
     @State private var detailNavigationTodo: TodoItem?  // 要进入哪个待办详情
     @State private var emptyActiveTodoMessage = ""
 
@@ -188,8 +178,8 @@ struct TodoView: View {
     }
 
     private func addTodoPanelMaxHeight(screenHeight: CGFloat) -> CGFloat {
-        guard screenHeight.isFinite, screenHeight > 0 else { return 300 }
-        return max(1, min(screenHeight * 0.58, 520))
+        guard screenHeight.isFinite, screenHeight > 0 else { return 400 }
+        return max(1, min(screenHeight * 0.78, 680))
     }
 
     // 自适应卡片宽度：手机屏幕宽度 - 40像素（GeometryReader 首帧可能为 0，需避免负/非有限 frame）
@@ -247,13 +237,37 @@ struct TodoView: View {
             .todoPanelCardChrome()
             .animation(todoCardSlideAnimation, value: showCompleted)
 
-            HStack {
-                Spacer(minLength: 0)
+            HStack(alignment: .top, spacing: 8) {
+                TodoTodayInputCard(viewModel: viewModel)
                 completedListToggleButton
             }
+
+            TodoRecurringTasksSummaryCard(
+                inProgressCount: viewModel.recurringInProgressCount,
+                pausedCount: viewModel.recurringPausedCount,
+                totalCompletedCount: viewModel.recurringTotalCompletedCount
+            ) {
+                showRecurringTasksList = true
+            }
+            .frame(width: cardWidth)
+
+            if let recommendation = viewModel.nextRecommendation {
+                TodoNextRecommendationCard(
+                    recommendation: recommendation,
+                    recommendationType: $viewModel.recommendationType,
+                    onCycleRecommendationType: { viewModel.cycleRecommendationType() }
+                ) {
+                    if let todo = viewModel.todos.first(where: { $0.id == recommendation.todoId }) {
+                        detailNavigationTodo = todo
+                    }
+                }
+                .frame(width: cardWidth)
+            }
+
+            TodoWeeklyTrendCard(viewModel: viewModel)
+                .frame(width: cardWidth)
         }
         .padding(.horizontal, 20)
-        .padding(.bottom, 100)
         .frame(width: max(0, width))
         .onChange(of: viewModel.activeTodos.count) { _, count in
             if count == 0 {
@@ -373,6 +387,7 @@ struct TodoView: View {
                             .foregroundColor(Color(hex: "#2B5748"))
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.leading, 4)
+                            .padding(.bottom, 2)
                             .textCase(nil)
                     }
                 }
@@ -464,37 +479,20 @@ struct TodoView: View {
                     .ignoresSafeArea()
                     
                     ScrollView {
-                        VStack(alignment: .leading, spacing: 30) {
-                            // App标题占位
-                            HStack {
-                                Spacer()
-                                Text("Mindflow")
-                                    .font(.system(size: 48, weight: .bold, design: .rounded))
-                                    .foregroundColor(.black)
-                                    .opacity(0) // 隐藏但占位
-                                Spacer()
-                            }
-                            .frame(height: 0)
-                            .padding(.top, 0)
-                            
-                            // 待办事项卡片（列表可为空，仍显示以便新建）
-                            todoCardContainer(width: geometry.size.width)
-                        }
+                        todoCardContainer(width: geometry.size.width)
                     }
-                    .safeAreaInset(edge: .top) {
-                        VStack(spacing: 0) {
-                            // App标题置顶
-                            HStack(alignment: .center) {
-                                Spacer()
-                                Text("Mindflow")
-                                    .font(.system(size: 48, weight: .bold, design: .rounded))
-                                    .foregroundColor(.black)
-                                Spacer()
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.horizontal)
+                    .mindFlowScrollContentBottomInset()
+                    .safeAreaInset(edge: .top, spacing: 8) {
+                        HStack(alignment: .center) {
+                            Spacer()
+                            Text("Mindflow")
+                                .font(.system(size: 48, weight: .bold, design: .rounded))
+                                .foregroundColor(.black)
+                            Spacer()
                         }
-                        .padding(.bottom, 30)
+                        .frame(maxWidth: .infinity)
+                        .padding(.horizontal)
+                        .padding(.bottom, 8)
                     }
 
                     // 面板始终挂在视图树里（收起时移出屏外）：标题 UITextField 已在 window 上，`becomeFirstResponder` 可与面板 spring 同帧触发，减轻「先出面后出键盘」
@@ -535,11 +533,1071 @@ struct TodoView: View {
                 .navigationDestination(item: $detailNavigationTodo) { todo in
                     TodoDetailView(viewModel: viewModel, todoId: todo.id)
                 }
+                .navigationDestination(isPresented: $showRecurringTasksList) {
+                    TodoRecurringTasksListView(viewModel: viewModel) { todo in
+                        detailNavigationTodo = todo
+                    }
+                }
                 .task {
                     await viewModel.loadTodos()
                 }
             }
         }
+    }
+}
+
+// MARK: - 循环任务汇总 / 列表
+
+private enum TodoRecurringSummaryMetrics {
+    static let horizontalPadding: CGFloat = 16
+    static let verticalPadding: CGFloat = 18
+    static let titleColumnMinWidth: CGFloat = 96
+    static let inProgressGreen = Color(hex: "#52B788")
+    static let pausedOrange = Color(hex: "#E8954A")
+    static let completedLabel = Color(hex: "#6B7280")
+    static let completedCount = Color(hex: "#2B5748")
+    static let titleDarkGreen = Color(hex: "#2B5748")
+}
+
+private struct TodoRecurringVerticalDashedDivider: View {
+    var body: some View {
+        GeometryReader { geometry in
+            Path { path in
+                path.move(to: CGPoint(x: 0.5, y: 0))
+                path.addLine(to: CGPoint(x: 0.5, y: geometry.size.height))
+            }
+            .stroke(
+                Color.secondary.opacity(0.28),
+                style: StrokeStyle(lineWidth: 1, dash: [4, 4])
+            )
+        }
+        .frame(width: 1)
+    }
+}
+
+private enum TodoTodayInputMetrics {
+    static let accent = Color(hex: "#2B5748")
+    /// 标题与时间行之间的间距（可调试，增大可整体下移时间区域）
+    static let titleToContentSpacing: CGFloat = 10
+    /// 时间数字与胶囊额外下移（pt，可调试）
+    static let contentTopOffset: CGFloat = 17
+}
+
+private enum TodoTodayInputFormatting {
+    static func hoursMinutes(from seconds: Int) -> (hours: Int, minutes: Int) {
+        let safe = max(0, seconds)
+        return (safe / 3600, (safe % 3600) / 60)
+    }
+
+    static func deltaBadgeText(minutes: Int) -> String {
+        if minutes == 0 { return "较昨日 持平" }
+        if minutes > 0 { return "较昨日 +\(minutes)分钟" }
+        return "较昨日 \(minutes)分钟"
+    }
+}
+
+private struct TodoTodayInputCard: View {
+    @ObservedObject var viewModel: TodoViewModel
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { _ in
+            cardContent
+        }
+    }
+
+    private var cardContent: some View {
+        let seconds = viewModel.todayInvestedSeconds
+        let (hours, minutes) = TodoTodayInputFormatting.hoursMinutes(from: seconds)
+        let deltaMinutes = (viewModel.todayInvestedSeconds - viewModel.yesterdayInvestedSeconds) / 60
+
+        return VStack(alignment: .leading, spacing: TodoTodayInputMetrics.titleToContentSpacing) {
+            Text("今日投入")
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(TodoTodayInputMetrics.accent)
+
+            HStack(alignment: .lastTextBaseline, spacing: 0) {
+                timeDisplay(hours: hours, minutes: minutes)
+                Spacer(minLength: 6)
+                deltaBadge(minutes: deltaMinutes)
+            }
+            .padding(.top, TodoTodayInputMetrics.contentTopOffset)
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 10)
+        .padding(.bottom, 2)
+        .frame(maxWidth: .infinity, minHeight: 100, maxHeight: 100, alignment: .topLeading)
+        .todoPanelCardChrome()
+    }
+
+    @ViewBuilder
+    private func timeDisplay(hours: Int, minutes: Int) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
+            if hours > 0 {
+                Text("\(hours)")
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundStyle(Color(hex: "#1A1A1A"))
+                Text("小时")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if minutes > 0 || hours == 0 {
+                Text("\(minutes)")
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundStyle(Color(hex: "#1A1A1A"))
+                Text("分钟")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .lineLimit(1)
+        .minimumScaleFactor(0.85)
+    }
+
+    private func deltaBadge(minutes: Int) -> some View {
+        let isUp = minutes > 0
+        let tint = isUp ? Color(hex: "#2B5748") : Color.secondary
+        return HStack(spacing: 2) {
+            if minutes != 0 {
+                Image(systemName: isUp ? "arrow.up" : "arrow.down")
+                    .font(.system(size: 10, weight: .bold))
+            }
+            Text(TodoTodayInputFormatting.deltaBadgeText(minutes: minutes))
+                .font(.caption.weight(.medium))
+                .lineLimit(2)
+                .multilineTextAlignment(.trailing)
+        }
+        .foregroundStyle(tint)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(Color(hex: "#E8F5E9"))
+        .clipShape(Capsule(style: .continuous))
+    }
+}
+
+private struct TodoRecurringTasksSummaryCard: View {
+    let inProgressCount: Int
+    let pausedCount: Int
+    let totalCompletedCount: Int
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(alignment: .center, spacing: 0) {
+                Text("循环任务")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundColor(TodoRecurringSummaryMetrics.titleDarkGreen)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.horizontal, TodoRecurringSummaryMetrics.horizontalPadding)
+
+                TodoRecurringVerticalDashedDivider()
+                    .padding(.vertical, 12)
+
+                summaryStatColumn(
+                    title: "进行中",
+                    count: inProgressCount,
+                    titleColor: TodoRecurringSummaryMetrics.inProgressGreen,
+                    countColor: TodoRecurringSummaryMetrics.inProgressGreen
+                )
+
+                TodoRecurringVerticalDashedDivider()
+                    .padding(.vertical, 12)
+
+                summaryStatColumn(
+                    title: "暂停中",
+                    count: pausedCount,
+                    titleColor: TodoRecurringSummaryMetrics.pausedOrange,
+                    countColor: TodoRecurringSummaryMetrics.pausedOrange
+                )
+
+                TodoRecurringVerticalDashedDivider()
+                    .padding(.vertical, 12)
+
+                summaryStatColumn(
+                    title: "已完成",
+                    count: totalCompletedCount,
+                    titleColor: TodoRecurringSummaryMetrics.completedLabel,
+                    countColor: TodoRecurringSummaryMetrics.completedCount
+                )
+            }
+            .padding(.vertical, TodoRecurringSummaryMetrics.verticalPadding)
+            .frame(maxWidth: .infinity)
+            .todoPanelCardChrome()
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func summaryStatColumn(title: String, count: Int, titleColor: Color, countColor: Color) -> some View {
+        VStack(spacing: 6) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundColor(titleColor)
+            Text("\(count)")
+                .font(.system(size: 26, weight: .bold))
+                .foregroundColor(countColor)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 4)
+    }
+}
+
+private struct TodoWeeklyTrendDay: Identifiable {
+    let weekdayLabel: String
+    let investedSeconds: Int
+    let isToday: Bool
+    var isPeak: Bool = false
+
+    var id: String { weekdayLabel }
+}
+
+private enum TodoWeeklyTrendMetrics {
+    static let accent = Color(hex: "#2B5748")
+    static let barInactive = Color(hex: "#DDEEE8")
+    static let barActive = Color(hex: "#2B5748")
+    static let totalCapsuleBackground = Color(hex: "#E8F5E9")
+    static let barWidth: CGFloat = 22
+    static let barCornerRadius: CGFloat = 5
+    static let barMaxHeight: CGFloat = 92
+    static let barMinHeight: CGFloat = 8
+    static let footerBackground = Color(hex: "#E8F5E9")
+
+    static func hoursLabel(seconds: Int) -> String? {
+        guard seconds > 0 else { return nil }
+        let hours = Double(seconds) / 3600.0
+        if hours >= 10 { return String(format: "%.0fh", hours) }
+        return String(format: "%.1fh", hours)
+    }
+}
+
+private struct TodoWeeklyTrendCard: View {
+    @ObservedObject var viewModel: TodoViewModel
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 60)) { _ in
+            cardContent
+        }
+    }
+
+    private var cardContent: some View {
+        let days = viewModel.weeklyTrendDays
+        let maxSeconds = max(days.map(\.investedSeconds).max() ?? 0, 1)
+
+        return VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .center) {
+                Text("本周趋势")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(TodoWeeklyTrendMetrics.accent)
+
+                Spacer(minLength: 8)
+
+                HStack(spacing: 4) {
+                    Text("总投入")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
+                    Text(viewModel.weeklyTotalInvestedHoursText)
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(TodoWeeklyTrendMetrics.accent)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(TodoWeeklyTrendMetrics.totalCapsuleBackground)
+                .clipShape(Capsule(style: .continuous))
+            }
+
+            HStack(alignment: .bottom, spacing: 8) {
+                ForEach(days) { day in
+                    trendBar(day: day, maxSeconds: maxSeconds)
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 4)
+
+            HStack(spacing: 6) {
+                Text("本周已完成 ")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(TodoWeeklyTrendMetrics.accent)
+                + Text("\(viewModel.weeklyCompletedCount)")
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(TodoWeeklyTrendMetrics.accent)
+                + Text(" 项")
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(TodoWeeklyTrendMetrics.accent)
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
+            .multilineTextAlignment(.center)
+            .padding(.vertical, 12)
+            .background(TodoWeeklyTrendMetrics.footerBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .padding(14)
+        .frame(minHeight: 220)
+        .todoPanelCardChrome()
+    }
+
+    private func trendBar(day: TodoWeeklyTrendDay, maxSeconds: Int) -> some View {
+        let ratio = CGFloat(day.investedSeconds) / CGFloat(max(maxSeconds, 1))
+        let barHeight = max(
+            TodoWeeklyTrendMetrics.barMinHeight,
+            TodoWeeklyTrendMetrics.barMaxHeight * ratio
+        )
+        let isHighlighted = day.isPeak
+
+        return VStack(spacing: 6) {
+            Group {
+                if let label = TodoWeeklyTrendMetrics.hoursLabel(seconds: day.investedSeconds) {
+                    Text(label)
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text(" ")
+                        .font(.caption2.weight(.medium))
+                }
+            }
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+
+            ZStack(alignment: .bottom) {
+                RoundedRectangle(cornerRadius: TodoWeeklyTrendMetrics.barCornerRadius, style: .continuous)
+                    .fill(isHighlighted ? TodoWeeklyTrendMetrics.barActive : TodoWeeklyTrendMetrics.barInactive)
+                    .frame(width: TodoWeeklyTrendMetrics.barWidth, height: barHeight)
+
+                if isHighlighted {
+                    Image(systemName: "star.fill")
+                        .font(.system(size: 7, weight: .bold))
+                        .foregroundStyle(.white)
+                        .padding(.bottom, 6)
+                }
+            }
+            .frame(height: TodoWeeklyTrendMetrics.barMaxHeight, alignment: .bottom)
+
+            Text(day.weekdayLabel)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(TodoWeeklyTrendMetrics.accent)
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+private enum TodoRecommendationType: CaseIterable {
+    case topPriority
+    case mostUrgent
+    case outfit
+    case fitness
+    case game
+
+    var displayName: String {
+        switch self {
+        case .topPriority: return "最优先"
+        case .mostUrgent: return "最紧急"
+        case .outfit: return "穿搭推荐"
+        case .fitness: return "运动推荐"
+        case .game: return "游戏推荐"
+        }
+    }
+
+    var badgeIcon: String {
+        switch self {
+        case .topPriority: return "star.fill"
+        case .mostUrgent: return "bolt.fill"
+        case .outfit: return "tshirt.fill"
+        case .fitness: return "figure.run"
+        case .game: return "gamecontroller.fill"
+        }
+    }
+
+    var next: TodoRecommendationType {
+        let all = Self.allCases
+        guard let index = all.firstIndex(of: self) else { return .topPriority }
+        return all[(index + 1) % all.count]
+    }
+
+    var theme: TodoRecommendationTheme {
+        switch self {
+        case .topPriority:
+            return TodoRecommendationTheme(
+                accent: Color(hex: "#6B5DD3"),
+                badgeBackground: Color(hex: "#EDE9FE"),
+                iconBackground: Color(hex: "#7C6AE8"),
+                arrowButtonBackground: Color(hex: "#F4F1FF")
+            )
+        case .mostUrgent:
+            return TodoRecommendationTheme(
+                accent: Color(hex: "#E57373"),
+                badgeBackground: Color(hex: "#FFEBEE"),
+                iconBackground: Color(hex: "#EF9A9A"),
+                arrowButtonBackground: Color(hex: "#FFF5F5")
+            )
+        case .outfit:
+            return TodoRecommendationTheme(
+                accent: Color(hex: "#2563EB"),
+                badgeBackground: Color(hex: "#DBEAFE"),
+                iconBackground: Color(hex: "#3B82F6"),
+                arrowButtonBackground: Color(hex: "#EFF6FF")
+            )
+        case .fitness:
+            return TodoRecommendationTheme(
+                accent: Color(hex: "#6B7280"),
+                badgeBackground: Color(hex: "#F3F4F6"),
+                iconBackground: Color(hex: "#9CA3AF"),
+                arrowButtonBackground: Color(hex: "#F9FAFB")
+            )
+        case .game:
+            return TodoRecommendationTheme(
+                accent: Color(hex: "#38BDF8"),
+                badgeBackground: Color(hex: "#E0F2FE"),
+                iconBackground: Color(hex: "#7DD3FC"),
+                arrowButtonBackground: Color(hex: "#F0F9FF")
+            )
+        }
+    }
+}
+
+private struct TodoRecommendationTheme {
+    let accent: Color
+    let badgeBackground: Color
+    let iconBackground: Color
+    let arrowButtonBackground: Color
+}
+
+private struct TodoNextRecommendation {
+    let todoId: Int
+    let title: String
+    let subtitle: String
+    let icon: String
+    let estimatedMinutes: Int
+    let suggestedStartTime: String
+}
+
+private enum TodoNextRecommendationMetrics {
+    static let titleColor = Color(hex: "#1A1A1A")
+    static let taskBoxBorder = Color(hex: "#E5E7EB")
+
+    static func prioritySortOrder(_ priority: TodoPriority) -> Int {
+        switch priority {
+        case .p1: return 0
+        case .p2: return 1
+        case .p3: return 2
+        case .p4: return 3
+        }
+    }
+}
+
+private struct TodoNextRecommendationCard: View {
+    let recommendation: TodoNextRecommendation
+    @Binding var recommendationType: TodoRecommendationType
+    let onCycleRecommendationType: () -> Void
+    let onOpen: () -> Void
+
+    var body: some View {
+        let theme = recommendationType.theme
+
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 6) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 14, weight: .semibold))
+                Text("下一项推荐")
+                    .font(.headline)
+                    .fontWeight(.bold)
+            }
+            .foregroundStyle(theme.accent)
+
+            Button(action: onOpen) {
+                HStack(alignment: .center, spacing: 12) {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(theme.iconBackground)
+                        .frame(width: 44, height: 44)
+                        .overlay {
+                            Image(systemName: recommendation.icon)
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundStyle(.white)
+                        }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(recommendation.title)
+                            .font(.headline.weight(.bold))
+                            .foregroundStyle(TodoNextRecommendationMetrics.titleColor)
+                            .multilineTextAlignment(.leading)
+                        if !recommendation.subtitle.isEmpty {
+                            Text(recommendation.subtitle)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.leading)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Circle()
+                        .fill(theme.arrowButtonBackground)
+                        .frame(width: 34, height: 34)
+                        .overlay {
+                            Image(systemName: "arrow.right")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(theme.accent)
+                        }
+                }
+                .padding(12)
+                .background(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(TodoNextRecommendationMetrics.taskBoxBorder, lineWidth: 1)
+                )
+            }
+            .buttonStyle(.plain)
+
+            HStack(spacing: 0) {
+                recommendationMetaColumn(
+                    title: "预计时长",
+                    value: "\(recommendation.estimatedMinutes) 分钟",
+                    valueColor: theme.accent
+                )
+
+                recommendationMetaDivider
+
+                recommendationMetaColumn(
+                    title: "建议开始时间",
+                    value: recommendation.suggestedStartTime,
+                    valueColor: theme.accent
+                )
+
+                recommendationMetaDivider
+
+                recommendationTypeBadgeColumn(theme: theme)
+            }
+        }
+        .padding(14)
+        .todoPanelCardChrome()
+        .animation(.easeInOut(duration: 0.22), value: recommendationType)
+    }
+
+    private func recommendationTypeBadgeColumn(theme: TodoRecommendationTheme) -> some View {
+        VStack(spacing: 0) {
+            Spacer(minLength: 0)
+            Button(action: onCycleRecommendationType) {
+                HStack(spacing: 4) {
+                    Image(systemName: recommendationType.badgeIcon)
+                        .font(.system(size: 9, weight: .bold))
+                    Text(recommendationType.displayName)
+                        .font(.caption.weight(.semibold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
+                .foregroundStyle(theme.accent)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(theme.badgeBackground)
+                .clipShape(Capsule(style: .continuous))
+            }
+            .buttonStyle(.plain)
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, minHeight: 42)
+    }
+
+    private var recommendationMetaDivider: some View {
+        Rectangle()
+            .fill(Color(hex: "#E5E7EB"))
+            .frame(width: 1, height: 42)
+    }
+
+    private func recommendationMetaColumn(
+        title: String,
+        value: String,
+        valueColor: Color
+    ) -> some View {
+        VStack(spacing: 6) {
+            Text(title)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+
+            Text(value)
+                .font(.subheadline.weight(.bold))
+                .foregroundStyle(valueColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+private struct TodoRecurringCategorySection: Identifiable {
+    let categoryId: Int?
+    let title: String
+
+    var id: String {
+        if let categoryId { return "category-\(categoryId)" }
+        return "category-uncategorized"
+    }
+
+    var headerTitle: String { title }
+}
+
+private enum TodoRecurringTaskCardMetrics {
+    static let accentBarWidth: CGFloat = 4
+    static let cornerRadius: CGFloat = 14
+    static let horizontalPadding: CGFloat = 14
+    static let topSectionVerticalPadding: CGFloat = 14
+    static let bottomSectionVerticalPadding: CGFloat = 12
+    static let titleFont: Font = .headline.weight(.bold)
+    static let statusColumnSpacing: CGFloat = 6
+    static let pausedIndicatorWidth: CGFloat = 18
+    static let pausedIndicatorHeight: CGFloat = 2.5
+    /// 循环任务列表顶部可滚动留白（避免被导航栏遮挡，可调试）
+    static let listScrollTopInset: CGFloat = TodoRowCardMetrics.detailPageScrollTopInset + 12
+    static let tagBackground = Color(hex: "#E8F5E9")
+    static let tagBackgroundYellow = Color(hex: "#FFF3CD")
+    static let accentGreen = Color(hex: "#52B788")
+    static let accentYellow = Color(hex: "#F4B942")
+    static let darkGreen = Color(hex: "#2B5748")
+    static let darkYellow = Color(hex: "#B7791F")
+    static let shimmerDuration: TimeInterval = 3.0
+}
+
+private struct TodoRecurringCompletionBar: View {
+    let percent: Int
+    let isPaused: Bool
+
+    @State private var animatedFraction: CGFloat = 0
+    @State private var shimmerPhase: CGFloat = 0
+
+    private var targetFraction: CGFloat {
+        min(1, max(0, CGFloat(percent) / 100))
+    }
+
+    private var fillColor: Color {
+        isPaused ? TodoRecurringTaskCardMetrics.accentYellow : TodoRecurringTaskCardMetrics.accentGreen
+    }
+
+    private var percentColor: Color {
+        isPaused ? TodoRecurringTaskCardMetrics.darkYellow : TodoRecurringTaskCardMetrics.darkGreen
+    }
+
+    var body: some View {
+        VStack(spacing: 8) {
+            Text("\(percent)%")
+                .font(.headline.weight(.bold))
+                .foregroundColor(percentColor)
+                .monospacedDigit()
+
+            GeometryReader { geometry in
+                let trackWidth = geometry.size.width
+                let fillWidth = trackWidth * animatedFraction
+                let bandWidth = min(24, max(12, fillWidth * 0.35))
+
+                ZStack(alignment: .leading) {
+                    Capsule(style: .continuous)
+                        .fill(Color.secondary.opacity(0.16))
+
+                    Capsule(style: .continuous)
+                        .fill(fillColor)
+                        .frame(width: fillWidth)
+                        .overlay {
+                            if !isPaused, fillWidth > 6 {
+                                Capsule(style: .continuous)
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [
+                                                Color.white.opacity(0),
+                                                Color.white.opacity(0.6),
+                                                Color.white.opacity(0)
+                                            ],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                    )
+                                    .frame(width: bandWidth)
+                                    .offset(x: -bandWidth + shimmerPhase * (fillWidth + bandWidth))
+                            }
+                        }
+                        .clipShape(Capsule(style: .continuous))
+                }
+            }
+            .frame(height: 10)
+            .frame(maxWidth: 84)
+        }
+        .onAppear {
+            syncAnimatedFraction(animated: true)
+            restartShimmerIfNeeded()
+        }
+        .onChange(of: percent) { _, _ in
+            syncAnimatedFraction(animated: true)
+        }
+        .onChange(of: isPaused) { _, _ in
+            restartShimmerIfNeeded()
+        }
+    }
+
+    private func syncAnimatedFraction(animated: Bool) {
+        if animated {
+            withAnimation(.easeOut(duration: 0.85)) {
+                animatedFraction = targetFraction
+            }
+        } else {
+            animatedFraction = targetFraction
+        }
+    }
+
+    private func restartShimmerIfNeeded() {
+        shimmerPhase = 0
+        guard !isPaused else { return }
+        withAnimation(.linear(duration: TodoRecurringTaskCardMetrics.shimmerDuration).repeatForever(autoreverses: false)) {
+            shimmerPhase = 1
+        }
+    }
+}
+
+private struct TodoRecurringInfinityIndicator: View {
+    let isPaused: Bool
+
+    @State private var shimmerPhase: CGFloat = 0
+
+    private var symbolColor: Color {
+        isPaused ? TodoRecurringTaskCardMetrics.darkYellow : TodoRecurringTaskCardMetrics.accentGreen
+    }
+
+    private let symbolFont = Font.system(size: 40, weight: .bold)
+
+    var body: some View {
+        Text("∞")
+            .font(symbolFont)
+            .foregroundColor(symbolColor)
+            .overlay {
+                if !isPaused {
+                    GeometryReader { geometry in
+                        let bandWidth = min(18, geometry.size.width * 0.45)
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0),
+                                Color.white.opacity(0.75),
+                                Color.white.opacity(0)
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                        .frame(width: bandWidth, height: geometry.size.height)
+                        .offset(x: -bandWidth + shimmerPhase * (geometry.size.width + bandWidth))
+                    }
+                    .mask {
+                        Text("∞")
+                            .font(symbolFont)
+                    }
+                }
+            }
+            .frame(height: 46)
+            .onAppear {
+                restartShimmerIfNeeded()
+            }
+            .onChange(of: isPaused) { _, _ in
+                restartShimmerIfNeeded()
+            }
+    }
+
+    private func restartShimmerIfNeeded() {
+        shimmerPhase = 0
+        guard !isPaused else { return }
+        withAnimation(.linear(duration: TodoRecurringTaskCardMetrics.shimmerDuration).repeatForever(autoreverses: false)) {
+            shimmerPhase = 1
+        }
+    }
+}
+
+private struct TodoRecurringTaskRowCard: View {
+    let todo: TodoItem
+    let onOpenDetail: () -> Void
+    let onToggleRecurringStatus: () -> Void
+
+    private var canToggleRecurringStatus: Bool {
+        !todo.isCompleted && todo.repeatMode != .none
+    }
+
+    private var isRecurringPaused: Bool {
+        !todo.isCompleted && todo.recurringCycleStatus == .paused
+    }
+
+    private var themeAccentColor: Color {
+        isRecurringPaused ? TodoRecurringTaskCardMetrics.accentYellow : TodoRecurringTaskCardMetrics.accentGreen
+    }
+
+    private var themeTagBackground: Color {
+        isRecurringPaused ? TodoRecurringTaskCardMetrics.tagBackgroundYellow : TodoRecurringTaskCardMetrics.tagBackground
+    }
+
+    private var themeTextColor: Color {
+        isRecurringPaused ? TodoRecurringTaskCardMetrics.darkYellow : TodoRecurringTaskCardMetrics.darkGreen
+    }
+
+    var body: some View {
+        HStack(spacing: 0) {
+            themeAccentColor
+                .frame(width: TodoRecurringTaskCardMetrics.accentBarWidth)
+
+            VStack(spacing: 0) {
+                HStack(spacing: 0) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(todo.title)
+                            .font(TodoRecurringTaskCardMetrics.titleFont)
+                            .foregroundColor(Color(hex: "#1A1A1A"))
+                            .multilineTextAlignment(.leading)
+                            .lineLimit(2)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        if let methodTag = todo.recurringMethodTag {
+                            Text(methodTag)
+                                .font(.caption.weight(.semibold))
+                                .foregroundColor(themeTextColor)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background {
+                                    Capsule(style: .continuous)
+                                        .fill(themeTagBackground)
+                                }
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Color.clear
+                        .frame(maxWidth: .infinity)
+
+                    Group {
+                        if isRecurringPaused || todo.recurringNextStartTimePhrase() != nil {
+                            statusNextStartIndicator
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .center)
+                }
+                .padding(.horizontal, TodoRecurringTaskCardMetrics.horizontalPadding)
+                .padding(.vertical, TodoRecurringTaskCardMetrics.topSectionVerticalPadding)
+
+                Rectangle()
+                    .fill(Color.secondary.opacity(0.12))
+                    .frame(height: 1)
+
+                HStack(spacing: 0) {
+                    bottomStatColumn(
+                        value: "\(todo.recurringCompletedOccurrences) 次",
+                        label: "已完成",
+                        valueColor: themeTextColor,
+                        labelFont: .subheadline.weight(.semibold)
+                    )
+                    bottomDivider
+                    bottomCompletionRateColumn
+                    bottomDivider
+                    bottomStatusColumn
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, TodoRecurringTaskCardMetrics.bottomSectionVerticalPadding)
+            }
+            .background(Color.white)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: TodoRecurringTaskCardMetrics.cornerRadius, style: .continuous))
+        .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 2)
+        .contentShape(RoundedRectangle(cornerRadius: TodoRecurringTaskCardMetrics.cornerRadius, style: .continuous))
+        .onTapGesture(perform: onOpenDetail)
+    }
+
+    @ViewBuilder
+    private var statusNextStartIndicator: some View {
+        if isRecurringPaused {
+            Rectangle()
+                .fill(themeTextColor)
+                .frame(
+                    width: TodoRecurringTaskCardMetrics.pausedIndicatorWidth,
+                    height: TodoRecurringTaskCardMetrics.pausedIndicatorHeight
+                )
+        } else if todo.recurringNextStartTimePhrase() != nil {
+            TimelineView(.periodic(from: .now, by: 60)) { context in
+                VStack(spacing: 4) {
+                    Text(todo.recurringNextStartTimePhrase(at: context.date) ?? "")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundColor(themeTextColor)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+                    Text("开始下次任务")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundColor(themeTextColor)
+                }
+                .multilineTextAlignment(.center)
+            }
+        }
+    }
+
+    private var bottomStatusColumn: some View {
+        VStack(spacing: TodoRecurringTaskCardMetrics.statusColumnSpacing) {
+            Spacer(minLength: 0)
+
+            Button {
+                onToggleRecurringStatus()
+            } label: {
+                Text(todo.recurringStatusDisplayName)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(themeTextColor)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background {
+                        Capsule(style: .continuous)
+                            .fill(themeTagBackground)
+                    }
+            }
+            .buttonStyle(.plain)
+            .disabled(!canToggleRecurringStatus)
+
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity)
+    }
+    @ViewBuilder
+    private var bottomCompletionRateColumn: some View {
+        Group {
+            if todo.isInfiniteRepeat {
+                TodoRecurringInfinityIndicator(isPaused: isRecurringPaused)
+            } else {
+                TodoRecurringCompletionBar(
+                    percent: todo.recurringCompletionRatePercent ?? 0,
+                    isPaused: isRecurringPaused
+                )
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func bottomStatColumn(
+        value: String,
+        label: String,
+        valueColor: Color = Color(hex: "#2B5748"),
+        valueFont: Font = .headline.weight(.semibold),
+        labelFont: Font = .caption2.weight(.semibold)
+    ) -> some View {
+        VStack(spacing: 6) {
+            Text(value)
+                .font(valueFont)
+                .foregroundColor(valueColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+            Text(label)
+                .font(labelFont)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var bottomDivider: some View {
+        Rectangle()
+            .fill(Color.secondary.opacity(0.15))
+            .frame(width: 1, height: 44)
+    }
+}
+
+private struct TodoRecurringTasksListView: View {
+    @ObservedObject var viewModel: TodoViewModel
+    let onSelectTodo: (TodoItem) -> Void
+
+    private var hasAnyRecurringTodos: Bool {
+        !viewModel.recurringIncompleteTodos.isEmpty
+    }
+
+    var body: some View {
+        Group {
+            if !hasAnyRecurringTodos {
+                ContentUnavailableView(
+                    "暂无循环任务",
+                    systemImage: "arrow.triangle.2.circlepath",
+                    description: Text("在待办详情中设置循环规则后，会显示在这里")
+                )
+            } else {
+                List {
+                    ForEach(viewModel.recurringCategorySections()) { section in
+                        let items = viewModel.recurringTodos(in: section.categoryId)
+                        Section {
+                            ForEach(items) { todo in
+                                TodoRecurringTaskRowCard(todo: todo) {
+                                    onSelectTodo(todo)
+                                } onToggleRecurringStatus: {
+                                    viewModel.toggleTodoRecurringCycleStatus(id: todo.id)
+                                }
+                                .listRowSeparator(.hidden)
+                                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                                .listRowBackground(Color.clear)
+                                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                        Button(role: .destructive) {
+                                            viewModel.beginRowSlideOut(id: todo.id, action: .delete)
+                                        } label: {
+                                            Label("删除", systemImage: "trash")
+                                        }
+                                    }
+                                }
+                        } header: {
+                            Text(section.headerTitle)
+                                .font(.headline)
+                                .fontWeight(.bold)
+                                .foregroundColor(Color(hex: "#2B5748"))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.leading, 4)
+                                .textCase(nil)
+                        }
+                    }
+                }
+                .listStyle(.plain)
+                .listSectionSpacing(TodoCardLayoutMetrics.sectionSpacing)
+                .scrollContentBackground(.hidden)
+                .contentMargins(.top, TodoRecurringTaskCardMetrics.listScrollTopInset, for: .scrollContent)
+                .mindFlowScrollContentBottomInset()
+            }
+        }
+        .background {
+            LinearGradient(
+                colors: [Color.white, Color(hex: "#d8f3dc")],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
+        }
+        .navigationTitle("循环任务")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct TodoWheelPickerBackgroundClearer: UIViewRepresentable {
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView(frame: .zero)
+        view.isUserInteractionEnabled = false
+        view.isHidden = true
+        return view
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        DispatchQueue.main.async {
+            var ancestor: UIView? = uiView.superview
+            while let current = ancestor {
+                if let picker = current as? UIPickerView {
+                    picker.backgroundColor = .clear
+                    for subview in picker.subviews {
+                        subview.backgroundColor = .clear
+                        subview.layer.cornerRadius = 0
+                    }
+                    break
+                }
+                ancestor = current.superview
+            }
+        }
+    }
+}
+
+private struct TodoWheelPickerClearBackground: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .scrollContentBackground(.hidden)
+            .background(Color.clear)
+            .background(TodoWheelPickerBackgroundClearer())
+    }
+}
+
+private extension View {
+    func todoWheelPickerClearBackground() -> some View {
+        modifier(TodoWheelPickerClearBackground())
     }
 }
 
@@ -564,8 +1622,11 @@ enum TodoPanelCardChrome {
 }
 
 extension View {
-    func todoPanelCardChrome(cornerRadius: CGFloat = TodoPanelCardChrome.cornerRadius) -> some View {
-        background(TodoPanelCardChrome.background)
+    func todoPanelCardChrome(
+        cornerRadius: CGFloat = TodoPanelCardChrome.cornerRadius,
+        background: Color = TodoPanelCardChrome.background
+    ) -> some View {
+        self.background(background)
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .shadow(
                 color: TodoPanelCardChrome.shadowColor,
@@ -684,9 +1745,7 @@ struct TodoCardView: View {
     @ViewBuilder
     private var trailingAccessory: some View {
         if todo.isCompleted {
-            Image(systemName: "chevron.right")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundColor(Color(hex: "#2B5748"))
+            EmptyView()
         } else if viewModel.showsWorkTimer(todoId: todo.id) {
             Group {
                 if viewModel.isWorkTimerRunning(todoId: todo.id) {
@@ -746,7 +1805,7 @@ struct TodoCardView: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
                     } else {
-                        Text(todo.timeSlotDisplayText)
+                        Text(todo.todayCardTimeDisplayText)
                             .font(.subheadline)
                             .fontWeight(.medium)
                             .foregroundColor(Color(hex: "#2B5748"))
@@ -762,7 +1821,7 @@ struct TodoCardView: View {
             .padding(.trailing, 24)
             .background(
                 todo.isCompleted
-                    ? Color(hex: "#2d6a4f").opacity(0.1)
+                    ? Color(hex: "#EAECF0")
                     : Color(.systemBackground)
             )
             .cornerRadius(12)
@@ -859,6 +1918,7 @@ class TodoViewModel: ObservableObject {
     }
 
     @Published var todos: [TodoItem] = []
+    @Published fileprivate var recommendationType: TodoRecommendationType = .topPriority
     @Published private(set) var activeWorkByTodoId: [Int: TodoActiveWorkState] = [:]
     /// 正在做滑出动画的行（删除 / 完成 / 恢复）
     @Published private(set) var slidingOutIds: Set<Int> = []
@@ -898,44 +1958,562 @@ class TodoViewModel: ObservableObject {
                 return left > right
             }
     }
-    
-    func loadTodos() async {
-        let calendar = Calendar.current
-        let today = Date()
-        let yesterday = calendar.date(byAdding: .day, value: -1, to: today) ?? today
-        let twoDaysAgo = calendar.date(byAdding: .day, value: -2, to: today) ?? today
 
-        todos = [
-            TodoItem(id: 1, title: "完成项目文档", description: "编写项目说明文档", isCompleted: false, status: .notStarted, priority: .p1, createdAt: today, completedDate: nil, completionDurationSeconds: nil, timeSlotStartHour: 9, timeSlotEndHour: 12, taskCategoryId: TodoLifeCategoryCatalog.outfitCategoryId),
-            TodoItem(id: 2, title: "代码审查", description: "审查团队代码", isCompleted: true, status: .completed, priority: .p2, createdAt: yesterday, completedDate: yesterday, completionDurationSeconds: 120, timeSlotStartHour: 0, timeSlotEndHour: 1, taskCategoryId: TodoLifeCategoryCatalog.outfitCategoryId),
-            TodoItem(id: 3, title: "准备会议", description: nil, isCompleted: false, status: .inProgress, priority: .p3, createdAt: today, completedDate: nil, completionDurationSeconds: nil, timeSlotStartHour: 14, timeSlotEndHour: 17, taskCategoryId: TodoLifeCategoryCatalog.outfitCategoryId),
-            TodoItem(id: 4, title: "晚间复盘", description: nil, isCompleted: false, status: .paused, priority: .p4, createdAt: twoDaysAgo, completedDate: nil, completionDurationSeconds: nil, timeSlotStartHour: 20, timeSlotEndHour: 22, taskCategoryId: TodoLifeCategoryCatalog.outfitCategoryId)
+    var recurringTodos: [TodoItem] {
+        todos
+            .filter { $0.repeatMode != .none }
+            .sorted { lhs, rhs in
+                let left = lhs.plannedDate ?? lhs.createdAt
+                let right = rhs.plannedDate ?? rhs.createdAt
+                if left != right { return left < right }
+                return lhs.id < rhs.id
+            }
+    }
+
+    var recurringIncompleteTodos: [TodoItem] {
+        recurringTodos.filter { !$0.isCompleted }
+    }
+
+    var recurringInProgressCount: Int {
+        recurringTodos.filter { !$0.isCompleted && $0.recurringCycleStatus == .active }.count
+    }
+
+    var recurringPausedCount: Int {
+        recurringTodos.filter { !$0.isCompleted && $0.recurringCycleStatus == .paused }.count
+    }
+
+    var recurringTotalCompletedCount: Int {
+        recurringTodos.filter(\.isCompleted).count
+    }
+
+    fileprivate func recurringCategorySections() -> [TodoRecurringCategorySection] {
+        var sections: [TodoRecurringCategorySection] = []
+        let listTodos = recurringIncompleteTodos
+        for category in TodoLifeCategoryCatalog.available {
+            let count = listTodos.filter { $0.taskCategoryId == category.taskCategoryId }.count
+            if count > 0 {
+                sections.append(
+                    TodoRecurringCategorySection(categoryId: category.taskCategoryId, title: category.title)
+                )
+            }
+        }
+        let uncategorizedCount = listTodos.filter { todo in
+            guard let id = todo.taskCategoryId else { return true }
+            return TodoLifeCategoryCatalog.option(for: id) == nil
+        }.count
+        if uncategorizedCount > 0 {
+            sections.append(TodoRecurringCategorySection(categoryId: nil, title: "未分类"))
+        }
+        return sections
+    }
+
+    fileprivate func recurringTodos(in categoryId: Int?) -> [TodoItem] {
+        let listTodos = recurringIncompleteTodos
+        if let categoryId {
+            return listTodos.filter { $0.taskCategoryId == categoryId }
+        }
+        return listTodos.filter { todo in
+            guard let id = todo.taskCategoryId else { return true }
+            return TodoLifeCategoryCatalog.option(for: id) == nil
+        }
+    }
+
+    private let repository = MindFlowRepository.shared
+
+    init() {
+        NotificationCenter.default.addObserver(
+            forName: .mindFlowDataDidReset,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                await self?.loadTodos()
+            }
+        }
+    }
+
+    private func persistTodos() {
+        repository.saveTodos(todos)
+    }
+
+    func loadTodos() async {
+        todos = repository.loadTodos()
+    }
+
+    static func makeSampleTodos() -> [TodoItem] {
+        makeSampleTodosInternal()
+    }
+
+    private static func makeSampleTodosInternal() -> [TodoItem] {
+        let calendar = Calendar.current
+        let now = Date()
+        let today = calendar.startOfDay(for: now)
+
+        func atTime(on day: Date, hour: Int, minute: Int) -> Date {
+            var components = calendar.dateComponents([.year, .month, .day], from: day)
+            components.hour = hour
+            components.minute = minute
+            components.second = 0
+            return calendar.date(from: components) ?? day
+        }
+
+        func plan(from date: Date) -> (day: Date, hour: Int, minute: Int) {
+            (
+                calendar.startOfDay(for: date),
+                calendar.component(.hour, from: date),
+                calendar.component(.minute, from: date)
+            )
+        }
+
+        let fitnessPlan = plan(from: calendar.date(byAdding: .day, value: 2, to: atTime(on: today, hour: 14, minute: 20)) ?? now)
+        let meditationPlan = plan(from: calendar.date(byAdding: .day, value: 1, to: atTime(on: today, hour: 7, minute: 0)) ?? now)
+        let englishPlan = plan(from: calendar.date(byAdding: .minute, value: 45, to: now) ?? now)
+        let standPlan = plan(from: calendar.date(byAdding: .hour, value: 3, to: now) ?? now)
+        let eyeCarePlan = plan(from: calendar.date(byAdding: .minute, value: 50, to: now) ?? now)
+        let accountingPlan = plan(from: calendar.date(byAdding: .day, value: 12, to: atTime(on: today, hour: 21, minute: 0)) ?? now)
+        let checkupPlan = plan(from: calendar.date(byAdding: .year, value: 2, to: atTime(on: today, hour: 9, minute: 0)) ?? now)
+        let challengePlan = plan(from: calendar.date(byAdding: .day, value: 5, to: atTime(on: today, hour: 8, minute: 0)) ?? now)
+        let reviewPlan = plan(from: calendar.date(byAdding: .day, value: 10, to: atTime(on: today, hour: 16, minute: 0)) ?? now)
+        let outfitPlan = plan(from: calendar.date(byAdding: .day, value: 3, to: atTime(on: today, hour: 19, minute: 0)) ?? now)
+        let challengeDeadline = calendar.date(byAdding: .day, value: 30, to: today) ?? today
+
+        return [
+            TodoItem(
+                id: 1,
+                title: "完成项目文档",
+                description: "编写项目说明文档",
+                isCompleted: false,
+                status: .notStarted,
+                priority: .p2,
+                createdAt: today,
+                completedDate: nil,
+                completionDurationSeconds: nil,
+                timeSlotStartHour: 9,
+                timeSlotEndHour: 12,
+                taskCategoryId: TodoLifeCategoryCatalog.workCategoryId
+            ),
+            TodoItem(
+                id: 26,
+                title: "学习 Python 函数",
+                description: "掌握函数定义与参数使用",
+                isCompleted: false,
+                status: .notStarted,
+                priority: .p1,
+                createdAt: today,
+                plannedDate: today,
+                completedDate: nil,
+                completionDurationSeconds: nil,
+                timeSlotStartHour: 20,
+                timeSlotStartMinute: 30,
+                timeSlotEndHour: 21,
+                timeSlotEndMinute: 0,
+                plannedTimeSlotHour: 20,
+                plannedTimeSlotMinute: 30,
+                taskCategoryId: TodoLifeCategoryCatalog.workCategoryId
+            ),
+            TodoItem(
+                id: 27,
+                title: "完成每日游戏任务",
+                description: "推进主线关卡",
+                isCompleted: false,
+                status: .notStarted,
+                priority: .p3,
+                createdAt: today,
+                plannedDate: today,
+                completedDate: nil,
+                completionDurationSeconds: nil,
+                timeSlotStartHour: 21,
+                timeSlotStartMinute: 0,
+                timeSlotEndHour: 21,
+                timeSlotEndMinute: 45,
+                plannedTimeSlotHour: 21,
+                plannedTimeSlotMinute: 0,
+                taskCategoryId: TodoLifeCategoryCatalog.lifeCategoryId
+            ),
+            // 周几标签 + 完成率进度条 +「x天后」倒计时
+            TodoItem(
+                id: 10,
+                title: "每周健身 3 次",
+                description: "力量 + 有氧",
+                isCompleted: false,
+                status: .notStarted,
+                priority: .p2,
+                createdAt: today,
+                plannedDate: fitnessPlan.day,
+                completedDate: nil,
+                completionDurationSeconds: nil,
+                timeSlotStartHour: 14,
+                timeSlotStartMinute: 20,
+                timeSlotEndHour: 16,
+                plannedTimeSlotHour: fitnessPlan.hour,
+                plannedTimeSlotMinute: fitnessPlan.minute,
+                taskCategoryId: TodoLifeCategoryCatalog.fitnessCategoryId,
+                repeatMode: .custom,
+                weeklyRepeatWeekdays: [1, 3, 5],
+                customRepeatInterval: 1,
+                customRepeatPeriod: .week,
+                recurringCycleStatus: .active,
+                recurringCompletedOccurrences: 28,
+                recurringCompletionRateBasis: 37
+            ),
+            // 暂停态 + 短横线指示
+            TodoItem(
+                id: 11,
+                title: "晨间冥想",
+                description: nil,
+                isCompleted: false,
+                status: .notStarted,
+                priority: .p3,
+                createdAt: today,
+                plannedDate: meditationPlan.day,
+                completedDate: nil,
+                completionDurationSeconds: nil,
+                timeSlotStartHour: 7,
+                timeSlotEndHour: 7,
+                timeSlotEndMinute: 30,
+                plannedTimeSlotHour: meditationPlan.hour,
+                taskCategoryId: TodoLifeCategoryCatalog.lifeCategoryId,
+                repeatMode: .custom,
+                customRepeatInterval: 1,
+                customRepeatPeriod: .day,
+                recurringCycleStatus: .paused,
+                recurringCompletedOccurrences: 12,
+                recurringCompletionRateBasis: 20
+            ),
+            // 循环次数上限 + 完成率
+            TodoItem(
+                id: 12,
+                title: "代码审查",
+                description: "团队 PR 审查",
+                isCompleted: false,
+                status: .notStarted,
+                priority: .p2,
+                createdAt: today,
+                plannedDate: meditationPlan.day,
+                completedDate: nil,
+                completionDurationSeconds: nil,
+                timeSlotStartHour: 10,
+                timeSlotEndHour: 11,
+                plannedTimeSlotHour: 10,
+                taskCategoryId: TodoLifeCategoryCatalog.workCategoryId,
+                repeatMode: .custom,
+                repeatLimitKind: .count,
+                repeatMaxOccurrences: 24,
+                customRepeatInterval: 1,
+                customRepeatPeriod: .week,
+                recurringCycleStatus: .active,
+                recurringCompletedOccurrences: 18
+            ),
+            // 无限循环 ∞ 指示
+            TodoItem(
+                id: 13,
+                title: "每日饮水 8 杯",
+                description: nil,
+                isCompleted: false,
+                status: .notStarted,
+                priority: .p4,
+                createdAt: today,
+                plannedDate: today,
+                completedDate: nil,
+                completionDurationSeconds: nil,
+                timeSlotStartHour: 8,
+                timeSlotEndHour: 22,
+                plannedTimeSlotHour: 8,
+                taskCategoryId: TodoLifeCategoryCatalog.lifeCategoryId,
+                repeatMode: .custom,
+                customRepeatInterval: 1,
+                customRepeatPeriod: .day,
+                recurringCycleStatus: .active,
+                recurringCompletedOccurrences: 45
+            ),
+            // 已完成循环（汇总卡「已完成」计数）
+            TodoItem(
+                id: 14,
+                title: "月度穿搭复盘",
+                description: nil,
+                isCompleted: true,
+                status: .completed,
+                priority: .p3,
+                createdAt: today,
+                plannedDate: today,
+                completedDate: today,
+                completionDurationSeconds: 900,
+                timeSlotStartHour: 20,
+                timeSlotEndHour: 21,
+                taskCategoryId: TodoLifeCategoryCatalog.outfitCategoryId,
+                repeatMode: .custom,
+                monthlyRepeatDays: [1],
+                customRepeatInterval: 1,
+                customRepeatPeriod: .month,
+                recurringCycleStatus: .active,
+                recurringCompletedOccurrences: 6,
+                recurringCompletionRateBasis: 6
+            ),
+            TodoItem(
+                id: 24,
+                title: "撰写周报",
+                description: nil,
+                isCompleted: true,
+                status: .completed,
+                priority: .p2,
+                createdAt: today,
+                plannedDate: today,
+                completedDate: today,
+                completionDurationSeconds: 11_400,
+                timeSlotStartHour: 10,
+                timeSlotEndHour: 13,
+                taskCategoryId: TodoLifeCategoryCatalog.workCategoryId
+            ),
+            TodoItem(
+                id: 25,
+                title: "阅读专业书籍",
+                description: nil,
+                isCompleted: true,
+                status: .completed,
+                priority: .p3,
+                createdAt: calendar.date(byAdding: .day, value: -1, to: today) ?? today,
+                plannedDate: calendar.date(byAdding: .day, value: -1, to: today),
+                completedDate: calendar.date(byAdding: .day, value: -1, to: today),
+                completionDurationSeconds: 10_620,
+                timeSlotStartHour: 20,
+                timeSlotEndHour: 21,
+                taskCategoryId: TodoLifeCategoryCatalog.lifeCategoryId
+            ),
+            // 工作日标签 +「x分钟后」
+            TodoItem(
+                id: 15,
+                title: "工作日英语听力",
+                description: nil,
+                isCompleted: false,
+                status: .notStarted,
+                priority: .p3,
+                createdAt: today,
+                plannedDate: englishPlan.day,
+                completedDate: nil,
+                completionDurationSeconds: nil,
+                timeSlotStartHour: englishPlan.hour,
+                timeSlotStartMinute: englishPlan.minute,
+                timeSlotEndHour: min(englishPlan.hour + 1, 23),
+                plannedTimeSlotHour: englishPlan.hour,
+                plannedTimeSlotMinute: englishPlan.minute,
+                taskCategoryId: TodoLifeCategoryCatalog.workCategoryId,
+                repeatMode: .custom,
+                weeklyRepeatWeekdays: [1, 2, 3, 4, 5],
+                customRepeatInterval: 1,
+                customRepeatPeriod: .day,
+                recurringCycleStatus: .active,
+                recurringCompletedOccurrences: 86,
+                recurringCompletionRateBasis: 120
+            ),
+            // 自定义小时间隔 +「x小时后」
+            TodoItem(
+                id: 16,
+                title: "每 2 小时站立活动",
+                description: nil,
+                isCompleted: false,
+                status: .notStarted,
+                priority: .p4,
+                createdAt: today,
+                plannedDate: standPlan.day,
+                completedDate: nil,
+                completionDurationSeconds: nil,
+                timeSlotStartHour: standPlan.hour,
+                timeSlotStartMinute: standPlan.minute,
+                timeSlotEndHour: min(standPlan.hour + 1, 23),
+                plannedTimeSlotHour: standPlan.hour,
+                plannedTimeSlotMinute: standPlan.minute,
+                taskCategoryId: TodoLifeCategoryCatalog.lifeCategoryId,
+                repeatMode: .custom,
+                customRepeatInterval: 2,
+                customRepeatPeriod: .hour,
+                recurringCycleStatus: .active,
+                recurringCompletedOccurrences: 4,
+                recurringCompletionRateBasis: 8
+            ),
+            // 自定义分钟间隔
+            TodoItem(
+                id: 17,
+                title: "每 30 分钟护眼",
+                description: nil,
+                isCompleted: false,
+                status: .notStarted,
+                priority: .p4,
+                createdAt: today,
+                plannedDate: eyeCarePlan.day,
+                completedDate: nil,
+                completionDurationSeconds: nil,
+                timeSlotStartHour: eyeCarePlan.hour,
+                timeSlotStartMinute: eyeCarePlan.minute,
+                timeSlotEndHour: eyeCarePlan.hour,
+                timeSlotEndMinute: min(eyeCarePlan.minute + 5, 59),
+                plannedTimeSlotHour: eyeCarePlan.hour,
+                plannedTimeSlotMinute: eyeCarePlan.minute,
+                taskCategoryId: TodoLifeCategoryCatalog.lifeCategoryId,
+                repeatMode: .custom,
+                customRepeatInterval: 30,
+                customRepeatPeriod: .hour,
+                recurringCycleStatus: .active,
+                recurringCompletedOccurrences: 11,
+                recurringCompletionRateBasis: 16
+            ),
+            // 月循环 +「x天后」
+            TodoItem(
+                id: 18,
+                title: "每月 5 号记账",
+                description: nil,
+                isCompleted: false,
+                status: .notStarted,
+                priority: .p3,
+                createdAt: today,
+                plannedDate: accountingPlan.day,
+                completedDate: nil,
+                completionDurationSeconds: nil,
+                timeSlotStartHour: 21,
+                timeSlotEndHour: 22,
+                plannedTimeSlotHour: accountingPlan.hour,
+                taskCategoryId: TodoLifeCategoryCatalog.lifeCategoryId,
+                repeatMode: .custom,
+                monthlyRepeatDays: [5],
+                customRepeatInterval: 1,
+                customRepeatPeriod: .month,
+                recurringCycleStatus: .active,
+                recurringCompletedOccurrences: 9,
+                recurringCompletionRateBasis: 12
+            ),
+            // 年循环 +「x年后」
+            TodoItem(
+                id: 19,
+                title: "年度健康体检",
+                description: nil,
+                isCompleted: false,
+                status: .notStarted,
+                priority: .p2,
+                createdAt: today,
+                plannedDate: checkupPlan.day,
+                completedDate: nil,
+                completionDurationSeconds: nil,
+                timeSlotStartHour: 9,
+                timeSlotEndHour: 11,
+                plannedTimeSlotHour: checkupPlan.hour,
+                taskCategoryId: TodoLifeCategoryCatalog.fitnessCategoryId,
+                repeatMode: .custom,
+                yearlyRepeatDays: [TodoYearlyRepeatDay(month: 6, day: 15)],
+                customRepeatInterval: 1,
+                customRepeatPeriod: .year,
+                recurringCycleStatus: .active,
+                recurringCompletedOccurrences: 2,
+                recurringCompletionRateBasis: 3
+            ),
+            // 循环截止日
+            TodoItem(
+                id: 20,
+                title: "21 天早起挑战",
+                description: nil,
+                isCompleted: false,
+                status: .notStarted,
+                priority: .p2,
+                createdAt: today,
+                plannedDate: challengePlan.day,
+                completedDate: nil,
+                completionDurationSeconds: nil,
+                timeSlotStartHour: 6,
+                timeSlotEndHour: 7,
+                plannedTimeSlotHour: challengePlan.hour,
+                taskCategoryId: TodoLifeCategoryCatalog.lifeCategoryId,
+                repeatMode: .custom,
+                repeatLimitKind: .deadline,
+                repeatUntilDate: challengeDeadline,
+                customRepeatInterval: 1,
+                customRepeatPeriod: .day,
+                recurringCycleStatus: .active,
+                recurringCompletedOccurrences: 14,
+                recurringCompletionRateBasis: 21
+            ),
+            // 隔周循环 +「x周后」
+            TodoItem(
+                id: 21,
+                title: "隔周团队复盘",
+                description: nil,
+                isCompleted: false,
+                status: .notStarted,
+                priority: .p3,
+                createdAt: today,
+                plannedDate: reviewPlan.day,
+                completedDate: nil,
+                completionDurationSeconds: nil,
+                timeSlotStartHour: 16,
+                timeSlotEndHour: 17,
+                plannedTimeSlotHour: reviewPlan.hour,
+                taskCategoryId: TodoLifeCategoryCatalog.workCategoryId,
+                repeatMode: .custom,
+                customRepeatInterval: 2,
+                customRepeatPeriod: .week,
+                recurringCycleStatus: .active,
+                recurringCompletedOccurrences: 7,
+                recurringCompletionRateBasis: 10
+            ),
+            // 穿搭分类
+            TodoItem(
+                id: 22,
+                title: "每周日衣橱整理",
+                description: nil,
+                isCompleted: false,
+                status: .notStarted,
+                priority: .p3,
+                createdAt: today,
+                plannedDate: outfitPlan.day,
+                completedDate: nil,
+                completionDurationSeconds: nil,
+                timeSlotStartHour: 19,
+                timeSlotEndHour: 20,
+                plannedTimeSlotHour: outfitPlan.hour,
+                taskCategoryId: TodoLifeCategoryCatalog.outfitCategoryId,
+                repeatMode: .custom,
+                weeklyRepeatWeekdays: [7],
+                customRepeatInterval: 1,
+                customRepeatPeriod: .week,
+                recurringCycleStatus: .active,
+                recurringCompletedOccurrences: 15,
+                recurringCompletionRateBasis: 20
+            )
         ]
     }
 
     func addTodo(
         title: String,
         description: String?,
-        timeSlotStartHour: Int,
-        timeSlotStartMinute: Int,
-        timeSlotEndHour: Int,
-        timeSlotEndMinute: Int,
-        taskCategoryId: Int? = nil
+        plannedDate: Date,
+        plannedTimeSlotHour: Int,
+        plannedTimeSlotMinute: Int,
+        plannedDurationMinutes: Int,
+        taskCategoryId: Int? = nil,
+        priority: TodoPriority = .p3
     ) {
         let newId = (todos.map(\.id).max() ?? 0) + 1
+        let cal = Calendar.current
+        let dayStart = cal.startOfDay(for: plannedDate)
+        let (endHour, endMinute) = Self.endTimeComponents(
+            startHour: plannedTimeSlotHour,
+            startMinute: plannedTimeSlotMinute,
+            durationMinutes: plannedDurationMinutes
+        )
         let item = TodoItem(
             id: newId,
             title: title,
             description: description,
             isCompleted: false,
             status: .notStarted,
+            priority: priority,
             createdAt: Date(),
+            plannedDate: dayStart,
             completedDate: nil,
             completionDurationSeconds: nil,
-            timeSlotStartHour: timeSlotStartHour,
-            timeSlotStartMinute: timeSlotStartMinute,
-            timeSlotEndHour: timeSlotEndHour,
-            timeSlotEndMinute: timeSlotEndMinute,
+            timeSlotStartHour: plannedTimeSlotHour,
+            timeSlotStartMinute: plannedTimeSlotMinute,
+            timeSlotEndHour: endHour,
+            timeSlotEndMinute: endMinute,
+            plannedTimeSlotHour: plannedTimeSlotHour,
+            plannedTimeSlotMinute: plannedTimeSlotMinute,
             taskCategoryId: taskCategoryId
         )
         let willGrowActiveCard = todos.filter { !$0.isCompleted }.isEmpty
@@ -946,28 +2524,132 @@ class TodoViewModel: ObservableObject {
         } else {
             todos.append(item)
         }
+        persistTodos()
     }
 
     func updateTodoDescription(id: Int, description: String) {
         guard let index = todos.firstIndex(where: { $0.id == id }) else { return }
         let trimmed = description.trimmingCharacters(in: .whitespacesAndNewlines)
         todos[index].description = trimmed.isEmpty ? nil : description
+        persistTodos()
     }
 
     func toggleTodoWeekday(id: Int, weekday: Int) {
         guard (1...7).contains(weekday),
               let index = todos.firstIndex(where: { $0.id == id }) else { return }
         todos[index].weeklyRepeatWeekdays = TodoWeekdayCatalog.toggled(weekday, in: todos[index].weeklyRepeatWeekdays)
+        persistTodos()
     }
 
     func cycleTodoRepeatMode(id: Int) {
         guard let index = todos.firstIndex(where: { $0.id == id }) else { return }
-        todos[index].repeatMode = todos[index].repeatMode.next
+        if todos[index].repeatMode == .none {
+            todos[index].repeatMode = .custom
+            todos[index].recurringCycleStatus = .active
+            if todos[index].customRepeatInterval < 1 {
+                todos[index].customRepeatInterval = 1
+            }
+        } else {
+            todos[index].repeatMode = .none
+        }
+        persistTodos()
+    }
+
+    func toggleTodoRecurringCycleStatus(id: Int) {
+        guard let index = todos.firstIndex(where: { $0.id == id }),
+              todos[index].repeatMode != .none else { return }
+        todos[index].recurringCycleStatus = todos[index].recurringCycleStatus.toggled
+        persistTodos()
+    }
+
+    func setTodoRepeatLimitKind(id: Int, kind: TodoRepeatLimitKind) {
+        guard let index = todos.firstIndex(where: { $0.id == id }) else { return }
+        switch kind {
+        case .unset:
+            todos[index].repeatLimitKind = .unset
+            todos[index].repeatUntilDate = nil
+            todos[index].repeatMaxOccurrences = nil
+        case .deadline:
+            todos[index].repeatLimitKind = .deadline
+            todos[index].repeatMaxOccurrences = nil
+        case .count:
+            todos[index].repeatLimitKind = .count
+            todos[index].repeatUntilDate = nil
+            if todos[index].repeatMaxOccurrences == nil {
+                todos[index].repeatMaxOccurrences = 1
+            }
+        }
+        persistTodos()
+    }
+
+    func updateTodoRepeatUntilDate(id: Int, date: Date) {
+        guard let index = todos.firstIndex(where: { $0.id == id }) else { return }
+        todos[index].repeatLimitKind = .deadline
+        todos[index].repeatMaxOccurrences = nil
+        todos[index].repeatUntilDate = Calendar.current.startOfDay(for: date)
+        persistTodos()
+    }
+
+    func updateTodoRepeatMaxOccurrences(id: Int, count: Int) {
+        guard let index = todos.firstIndex(where: { $0.id == id }) else { return }
+        todos[index].repeatLimitKind = .count
+        todos[index].repeatUntilDate = nil
+        todos[index].repeatMaxOccurrences = max(1, count)
+        persistTodos()
+    }
+
+    func incrementTodoRepeatMaxOccurrences(id: Int) {
+        guard let index = todos.firstIndex(where: { $0.id == id }) else { return }
+        todos[index].repeatLimitKind = .count
+        todos[index].repeatUntilDate = nil
+        let next = (todos[index].repeatMaxOccurrences ?? 0) + 1
+        todos[index].repeatMaxOccurrences = next
+        persistTodos()
+    }
+
+    func decrementTodoRepeatMaxOccurrences(id: Int) {
+        guard let index = todos.firstIndex(where: { $0.id == id }) else { return }
+        guard let count = todos[index].repeatMaxOccurrences else { return }
+        if count <= 1 {
+            todos[index].repeatMaxOccurrences = nil
+            if todos[index].repeatUntilDate == nil {
+                todos[index].repeatLimitKind = .unset
+            }
+        } else {
+            todos[index].repeatMaxOccurrences = count - 1
+        }
+        persistTodos()
+    }
+
+    func updateTodoCustomRepeatInterval(id: Int, interval: Int) {
+        guard let index = todos.firstIndex(where: { $0.id == id }) else { return }
+        todos[index].customRepeatInterval = max(1, interval)
+        if todos[index].repeatMode != .none {
+            todos[index].repeatMode = .custom
+        }
+        persistTodos()
+    }
+
+    func updateTodoCustomRepeatPeriod(id: Int, period: TodoCustomRepeatPeriod) {
+        guard let index = todos.firstIndex(where: { $0.id == id }) else { return }
+        todos[index].customRepeatPeriod = period
+        if todos[index].repeatMode != .none {
+            todos[index].repeatMode = .custom
+        }
+        persistTodos()
     }
 
     func cycleTodoPriority(id: Int) {
         guard let index = todos.firstIndex(where: { $0.id == id }) else { return }
         todos[index].priority = todos[index].priority.next
+        persistTodos()
+    }
+
+    func updateTodoCategory(id: Int, taskCategoryId: Int) {
+        guard let index = todos.firstIndex(where: { $0.id == id }),
+              TodoLifeCategoryCatalog.option(for: taskCategoryId) != nil else { return }
+        todos[index].taskCategoryId = taskCategoryId
+        persistTodos()
     }
 
     func toggleTodoMonthlyRepeatDay(id: Int, day: Int) {
@@ -978,11 +2660,13 @@ class TodoViewModel: ObservableObject {
         } else {
             todos[index].monthlyRepeatDays.insert(day)
         }
+        persistTodos()
     }
 
     func toggleTodoMonthlyRepeatLastDayFallback(id: Int) {
         guard let index = todos.firstIndex(where: { $0.id == id }) else { return }
         todos[index].monthlyRepeatUsesLastDayFallback.toggle()
+        persistTodos()
     }
 
     func toggleTodoYearlyRepeatDay(id: Int, month: Int, day: Int) {
@@ -994,6 +2678,7 @@ class TodoViewModel: ObservableObject {
         } else {
             todos[index].yearlyRepeatDays.insert(anchor)
         }
+        persistTodos()
     }
 
     func updateTodoTimeSlot(
@@ -1008,6 +2693,7 @@ class TodoViewModel: ObservableObject {
         todos[index].timeSlotStartMinute = startMinute
         todos[index].timeSlotEndHour = endHour
         todos[index].timeSlotEndMinute = endMinute
+        persistTodos()
     }
 
     func updateTodoTimeSlotStart(id: Int, hour: Int, minute: Int) {
@@ -1015,6 +2701,7 @@ class TodoViewModel: ObservableObject {
         todos[index].timeSlotStartHour = hour
         todos[index].timeSlotStartMinute = minute
         todos[index].createdAt = Self.mergeTime(hour: hour, minute: minute, into: todos[index].createdAt)
+        persistTodos()
     }
 
     @discardableResult
@@ -1030,6 +2717,7 @@ class TodoViewModel: ObservableObject {
             return failure.alertMessage
         }
         todos[index] = candidate
+        persistTodos()
         return nil
     }
 
@@ -1042,6 +2730,7 @@ class TodoViewModel: ObservableObject {
         } else if let endDate = todos[index].endDate {
             todos[index].endDate = Self.mergeTime(hour: hour, minute: minute, into: endDate)
         }
+        persistTodos()
     }
 
     @discardableResult
@@ -1061,6 +2750,7 @@ class TodoViewModel: ObservableObject {
             return failure.alertMessage
         }
         todos[index] = candidate
+        persistTodos()
         return nil
     }
 
@@ -1071,6 +2761,7 @@ class TodoViewModel: ObservableObject {
         if let plannedDate = todos[index].plannedDate {
             todos[index].plannedDate = Self.mergeTime(hour: hour, minute: minute, into: plannedDate)
         }
+        persistTodos()
     }
 
     func updateTodoRepeatMoment(id: Int, hour: Int, minute: Int) {
@@ -1080,6 +2771,7 @@ class TodoViewModel: ObservableObject {
     func updateTodoDate(id: Int, target: TodoDetailDateTarget, date: Date) {
         guard let index = todos.firstIndex(where: { $0.id == id }) else { return }
         applyTodoDate(date, target: target, to: &todos[index])
+        persistTodos()
     }
 
     @discardableResult
@@ -1095,6 +2787,7 @@ class TodoViewModel: ObservableObject {
             }
         }
         todos[index] = candidate
+        persistTodos()
         return nil
     }
 
@@ -1116,11 +2809,24 @@ class TodoViewModel: ObservableObject {
         }
     }
 
+    static func endTimeComponents(
+        startHour: Int,
+        startMinute: Int,
+        durationMinutes: Int
+    ) -> (hour: Int, minute: Int) {
+        let start = min(max(startHour, 0), 23) * 60 + min(max(startMinute, 0), 59)
+        let end = start + max(1, durationMinutes)
+        if end >= 24 * 60 {
+            return (24, 0)
+        }
+        return (end / 60, end % 60)
+    }
+
     static func scheduleStartDateTime(for todo: TodoItem) -> Date {
         mergeTime(
-            hour: min(max(todo.timeSlotStartHour, 0), 23),
-            minute: min(max(todo.timeSlotStartMinute, 0), 59),
-            into: todo.createdAt
+            hour: min(max(todo.plannedTimeSlotHour, 0), 23),
+            minute: min(max(todo.plannedTimeSlotMinute, 0), 59),
+            into: todo.plannedDate ?? todo.createdAt
         )
     }
 
@@ -1152,7 +2858,7 @@ class TodoViewModel: ObservableObject {
     }
 
     static func scheduleEndDateTime(for todo: TodoItem) -> Date {
-        let base = todo.completedDate ?? todo.endDate ?? todo.createdAt
+        let base = todo.plannedDate ?? todo.completedDate ?? todo.endDate ?? todo.createdAt
         let endHour = min(max(todo.timeSlotEndHour, 0), 24)
         let endMinute: Int
         let mergeHour: Int
@@ -1226,6 +2932,7 @@ class TodoViewModel: ObservableObject {
             todos[index].completionDurationSeconds = nil
             todos[index].status = resolvedWorkStatus(for: todos[index])
         }
+        persistTodos()
     }
 
     func beginRowSlideOut(id: Int, action: RowSlideOutAction) {
@@ -1282,6 +2989,7 @@ class TodoViewModel: ObservableObject {
             mutation.disablesAnimations = true
             withTransaction(mutation, applyMutation)
         }
+        persistTodos()
     }
 
     private enum CardHeightMotion {
@@ -1335,11 +3043,16 @@ class TodoViewModel: ObservableObject {
             state.runningSince = now
             state.runningSegmentBasePhaseRadians = state.pausedLightBandPhaseRadians ?? TodoLightBandConstants.defaultIdleFramePhaseRadians
             state.pausedLightBandPhaseRadians = nil
+            if let index = todos.firstIndex(where: { $0.id == todoId }),
+               todos[index].workStartedAt == nil {
+                todos[index].workStartedAt = now
+            }
         }
         activeWorkByTodoId[todoId] = state
         if let index = todos.firstIndex(where: { $0.id == todoId }) {
             todos[index].status = resolvedWorkStatus(for: todos[index])
         }
+        persistTodos()
     }
 
     func isWorkTimerRunning(todoId: Int) -> Bool {
@@ -1369,6 +3082,164 @@ class TodoViewModel: ObservableObject {
             acc += Date().timeIntervalSince(since)
         }
         return max(0, Int(acc))
+    }
+
+    func investedSeconds(on day: Date) -> Int {
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: day)
+        guard let end = calendar.date(byAdding: .day, value: 1, to: start) else { return 0 }
+
+        var total = todos.reduce(into: 0) { partial, todo in
+            guard todo.isCompleted,
+                  let completedDate = todo.completedDate,
+                  completedDate >= start,
+                  completedDate < end,
+                  let seconds = todo.completionDurationSeconds,
+                  seconds > 0 else { return }
+            partial += seconds
+        }
+
+        if calendar.isDateInToday(day) {
+            for todoId in activeWorkByTodoId.keys {
+                total += currentWorkSeconds(todoId: todoId)
+            }
+        }
+        return total
+    }
+
+    var todayInvestedSeconds: Int {
+        investedSeconds(on: Date())
+    }
+
+    var yesterdayInvestedSeconds: Int {
+        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
+        return investedSeconds(on: yesterday)
+    }
+
+    fileprivate var weeklyTrendDays: [TodoWeeklyTrendDay] {
+        var calendar = Calendar.current
+        calendar.firstWeekday = 2
+        let today = calendar.startOfDay(for: Date())
+        guard let weekStart = calendar.dateInterval(of: .weekOfYear, for: today)?.start else { return [] }
+
+        let weekdayLabels = ["一", "二", "三", "四", "五", "六", "日"]
+        let days = (0..<7).compactMap { offset -> TodoWeeklyTrendDay? in
+            guard let day = calendar.date(byAdding: .day, value: offset, to: weekStart) else { return nil }
+            return TodoWeeklyTrendDay(
+                weekdayLabel: weekdayLabels[offset],
+                investedSeconds: investedSeconds(on: day),
+                isToday: calendar.isDate(day, inSameDayAs: today)
+            )
+        }
+        let peakSeconds = days.map(\.investedSeconds).max() ?? 0
+        guard peakSeconds > 0 else { return days }
+        return days.map { day in
+            var copy = day
+            copy.isPeak = day.investedSeconds == peakSeconds
+            return copy
+        }
+    }
+
+    var weeklyTotalInvestedHoursText: String {
+        let totalSeconds = weeklyTrendDays.reduce(0) { $0 + $1.investedSeconds }
+        let hours = Double(totalSeconds) / 3600.0
+        if hours >= 10 {
+            return String(format: "%.0fh", hours)
+        }
+        return String(format: "%.1fh", hours)
+    }
+
+    var weeklyCompletedCount: Int {
+        var calendar = Calendar.current
+        calendar.firstWeekday = 2
+        let today = calendar.startOfDay(for: Date())
+        guard let interval = calendar.dateInterval(of: .weekOfYear, for: today) else { return 0 }
+        return todos.filter { todo in
+            guard todo.isCompleted, let completedDate = todo.completedDate else { return false }
+            return interval.contains(completedDate)
+        }.count
+    }
+
+    func cycleRecommendationType() {
+        recommendationType = recommendationType.next
+    }
+
+    fileprivate var nextRecommendation: TodoNextRecommendation? {
+        guard let todo = recommendedTodo(for: recommendationType) else { return nil }
+
+        let estimatedMinutes = max(1, todo.timeSlotDurationSeconds / 60)
+        let categoryIcon: String = {
+            if todo.title.contains("Python") {
+                return "chevron.left.forwardslash.chevron.right"
+            }
+            if todo.title.contains("游戏") {
+                return "gamecontroller.fill"
+            }
+            return todo.taskCategoryId.flatMap { TodoLifeCategoryCatalog.option(for: $0)?.icon }
+                ?? "chevron.left.forwardslash.chevron.right"
+        }()
+
+        return TodoNextRecommendation(
+            todoId: todo.id,
+            title: todo.title,
+            subtitle: todo.description ?? "",
+            icon: categoryIcon,
+            estimatedMinutes: estimatedMinutes,
+            suggestedStartTime: todo.plannedTimeSlotDisplayText
+        )
+    }
+
+    private func recommendedTodo(for type: TodoRecommendationType) -> TodoItem? {
+        let candidates = candidateTodos(for: type)
+        switch type {
+        case .topPriority:
+            return candidates.min(by: compareByPriorityThenStartTime)
+        case .mostUrgent:
+            return candidates.min(by: compareByScheduledDateThenPriority)
+        case .outfit, .fitness, .game:
+            return candidates.min(by: compareByPriorityThenStartTime)
+        }
+    }
+
+    private func candidateTodos(for type: TodoRecommendationType) -> [TodoItem] {
+        switch type {
+        case .topPriority, .mostUrgent:
+            return activeTodos.filter { $0.repeatMode == .none }
+        case .outfit:
+            return activeTodos.filter { $0.taskCategoryId == TodoLifeCategoryCatalog.outfitCategoryId }
+        case .fitness:
+            return activeTodos.filter { $0.taskCategoryId == TodoLifeCategoryCatalog.fitnessCategoryId }
+        case .game:
+            return activeTodos.filter { todo in
+                todo.title.contains("游戏") || (todo.description?.contains("游戏") == true)
+            }
+        }
+    }
+
+    private func compareByPriorityThenStartTime(_ lhs: TodoItem, _ rhs: TodoItem) -> Bool {
+        let leftOrder = TodoNextRecommendationMetrics.prioritySortOrder(lhs.priority)
+        let rightOrder = TodoNextRecommendationMetrics.prioritySortOrder(rhs.priority)
+        if leftOrder != rightOrder { return leftOrder < rightOrder }
+        if lhs.timeSlotStartHour != rhs.timeSlotStartHour {
+            return lhs.timeSlotStartHour < rhs.timeSlotStartHour
+        }
+        return lhs.timeSlotStartMinute < rhs.timeSlotStartMinute
+    }
+
+    private func compareByScheduledDateThenPriority(_ lhs: TodoItem, _ rhs: TodoItem) -> Bool {
+        let leftDate = scheduledDate(for: lhs)
+        let rightDate = scheduledDate(for: rhs)
+        if leftDate != rightDate { return leftDate < rightDate }
+        return compareByPriorityThenStartTime(lhs, rhs)
+    }
+
+    private func scheduledDate(for todo: TodoItem) -> Date {
+        let calendar = Calendar.current
+        let day = calendar.startOfDay(for: todo.plannedDate ?? todo.createdAt)
+        var components = calendar.dateComponents([.year, .month, .day], from: day)
+        components.hour = min(max(todo.plannedTimeSlotHour, 0), 23)
+        components.minute = min(max(todo.plannedTimeSlotMinute, 0), 59)
+        return calendar.date(from: components) ?? day
     }
 
     /// 结束计时并返回累计秒数（清空该条待办的计时状态）
@@ -1421,27 +3292,122 @@ enum TodoPriority: String, Codable, CaseIterable, Hashable {
 
 // MARK: - 待办重复规则
 
+enum TodoRepeatLimitKind: String, Codable, CaseIterable {
+    case unset
+    case deadline
+    case count
+
+    var displayName: String {
+        switch self {
+        case .unset: return ""
+        case .deadline: return "截止时间"
+        case .count: return "循环次数"
+        }
+    }
+}
+
+enum TodoCustomRepeatPeriod: String, Codable, CaseIterable {
+    case year
+    case month
+    case week
+    case day
+    case hour
+    case minute
+
+    /// 滚轮展示顺序（不含分钟）
+    static let wheelOrder: [TodoCustomRepeatPeriod] = [.hour, .day, .week, .month, .year]
+
+    var displayName: String {
+        switch self {
+        case .year: return "年"
+        case .month: return "月"
+        case .week: return "周"
+        case .day: return "天"
+        case .hour: return "小时"
+        case .minute: return "分钟"
+        }
+    }
+
+    /// 循环规则滚轮展示用（如「时」而非「小时」）
+    var wheelDisplayName: String {
+        switch self {
+        case .hour: return "时"
+        default: return displayName
+        }
+    }
+
+    /// 间隔为 1 时的规则文案（如「每天」「每周」）
+    var singularIntervalLabel: String {
+        switch self {
+        case .day: return "每天"
+        case .week: return "每周"
+        case .month: return "每月"
+        case .year: return "每年"
+        case .hour: return "每小时"
+        case .minute: return "每分钟"
+        }
+    }
+
+    func recurringTag(interval: Int) -> String {
+        let value = max(1, interval)
+        if value == 1 { return singularIntervalLabel }
+        return "每\(value)\(displayName)"
+    }
+}
+
+/// 循环任务周期状态（与任务计时「进行中/暂停」无关）
+enum TodoRecurringCycleStatus: String, Codable, CaseIterable {
+    case active
+    case paused
+
+    var displayName: String {
+        switch self {
+        case .active: return "进行中"
+        case .paused: return "暂停中"
+        }
+    }
+
+    var toggled: TodoRecurringCycleStatus {
+        switch self {
+        case .active: return .paused
+        case .paused: return .active
+        }
+    }
+}
+
 enum TodoRepeatMode: String, Codable, CaseIterable {
     case none
     case weekly
     case monthly
     case yearly
+    case custom
 
     var displayName: String {
         switch self {
-        case .none: return "不重复"
-        case .weekly: return "周重复"
-        case .monthly: return "月重复"
-        case .yearly: return "年重复"
+        case .none: return "不循环"
+        case .weekly: return "周循环"
+        case .monthly: return "月循环"
+        case .yearly: return "年循环"
+        case .custom: return "循环"
         }
+    }
+
+    /// 待办详情循环芯片：仅「不循环 / 循环」
+    var cycleChipDisplayName: String {
+        switch self {
+        case .none: return "不循环"
+        case .weekly, .monthly, .yearly, .custom: return "循环"
+        }
+    }
+
+    var usesRepeatLimit: Bool {
+        self != .none
     }
 
     var next: TodoRepeatMode {
         switch self {
-        case .none: return .weekly
-        case .weekly: return .monthly
-        case .monthly: return .yearly
-        case .yearly: return .none
+        case .none: return .custom
+        case .weekly, .monthly, .yearly, .custom: return .none
         }
     }
 }
@@ -1464,6 +3430,8 @@ struct TodoItem: Identifiable, Codable, Hashable {
     var plannedDate: Date?
     /// 结束日期（未完成时；nil 时回退到 completedDate 或 createdAt）
     var endDate: Date?
+    /// 首次开始计时的时刻
+    var workStartedAt: Date?
     var completedDate: Date?
     /// 完成该任务所用耗时（秒），仅在已完成时有值；由完成时刻与 `createdAt` 差值写入
     var completionDurationSeconds: Int?
@@ -1490,9 +3458,25 @@ struct TodoItem: Identifiable, Codable, Hashable {
     var monthlyRepeatUsesLastDayFallback: Bool
     /// 年重复：月-日
     var yearlyRepeatDays: Set<TodoYearlyRepeatDay>
+    /// 周/年重复：截止时间与循环次数二选一；均未设置时为无限循环
+    var repeatLimitKind: TodoRepeatLimitKind
+    /// 重复截止日期（`repeatLimitKind == .deadline` 时有效）
+    var repeatUntilDate: Date?
+    /// 最大循环次数（`repeatLimitKind == .count` 时有效）
+    var repeatMaxOccurrences: Int?
+    /// 自定义循环：间隔数值
+    var customRepeatInterval: Int
+    /// 自定义循环：间隔单位
+    var customRepeatPeriod: TodoCustomRepeatPeriod
+    /// 循环周期状态：进行中 / 暂停中
+    var recurringCycleStatus: TodoRecurringCycleStatus
+    /// 累计完成循环次数（展示用）
+    var recurringCompletedOccurrences: Int
+    /// 完成率分母；未设置时回退到 `repeatMaxOccurrences`
+    var recurringCompletionRateBasis: Int?
 
     enum CodingKeys: String, CodingKey {
-        case id, title, description, isCompleted, status, priority, createdAt, plannedDate, endDate, completedDate
+        case id, title, description, isCompleted, status, priority, createdAt, plannedDate, endDate, workStartedAt, completedDate
         case completionDurationSeconds
         case timeSlotStartHour, timeSlotStartMinute, timeSlotEndHour, timeSlotEndMinute
         case plannedTimeSlotHour, plannedTimeSlotMinute
@@ -1502,6 +3486,14 @@ struct TodoItem: Identifiable, Codable, Hashable {
         case monthlyRepeatDays
         case monthlyRepeatUsesLastDayFallback
         case yearlyRepeatDays
+        case repeatLimitKind
+        case repeatUntilDate
+        case repeatMaxOccurrences
+        case customRepeatInterval
+        case customRepeatPeriod
+        case recurringCycleStatus
+        case recurringCompletedOccurrences
+        case recurringCompletionRateBasis
     }
 
     init(
@@ -1514,6 +3506,7 @@ struct TodoItem: Identifiable, Codable, Hashable {
         createdAt: Date,
         plannedDate: Date? = nil,
         endDate: Date? = nil,
+        workStartedAt: Date? = nil,
         completedDate: Date?,
         completionDurationSeconds: Int? = nil,
         timeSlotStartHour: Int = 0,
@@ -1527,7 +3520,15 @@ struct TodoItem: Identifiable, Codable, Hashable {
         weeklyRepeatWeekdays: Set<Int> = [],
         monthlyRepeatDays: Set<Int> = [],
         monthlyRepeatUsesLastDayFallback: Bool = false,
-        yearlyRepeatDays: Set<TodoYearlyRepeatDay> = []
+        yearlyRepeatDays: Set<TodoYearlyRepeatDay> = [],
+        repeatLimitKind: TodoRepeatLimitKind = .unset,
+        repeatUntilDate: Date? = nil,
+        repeatMaxOccurrences: Int? = nil,
+        customRepeatInterval: Int = 1,
+        customRepeatPeriod: TodoCustomRepeatPeriod = .week,
+        recurringCycleStatus: TodoRecurringCycleStatus = .active,
+        recurringCompletedOccurrences: Int = 0,
+        recurringCompletionRateBasis: Int? = nil
     ) {
         self.id = id
         self.title = title
@@ -1539,6 +3540,7 @@ struct TodoItem: Identifiable, Codable, Hashable {
         let dayStart = Calendar.current.startOfDay(for: createdAt)
         self.plannedDate = plannedDate ?? dayStart
         self.endDate = endDate ?? dayStart
+        self.workStartedAt = workStartedAt
         self.completedDate = completedDate
         self.completionDurationSeconds = completionDurationSeconds
         self.timeSlotStartHour = timeSlotStartHour
@@ -1553,6 +3555,35 @@ struct TodoItem: Identifiable, Codable, Hashable {
         self.monthlyRepeatDays = monthlyRepeatDays
         self.monthlyRepeatUsesLastDayFallback = monthlyRepeatUsesLastDayFallback
         self.yearlyRepeatDays = yearlyRepeatDays
+        self.repeatLimitKind = repeatLimitKind
+        self.repeatUntilDate = repeatUntilDate
+        self.repeatMaxOccurrences = repeatMaxOccurrences
+        self.customRepeatInterval = max(1, customRepeatInterval)
+        self.customRepeatPeriod = customRepeatPeriod
+        self.recurringCycleStatus = repeatMode == .none ? .active : recurringCycleStatus
+        self.recurringCompletedOccurrences = max(0, recurringCompletedOccurrences)
+        self.recurringCompletionRateBasis = recurringCompletionRateBasis
+        normalizeLegacyRepeatMode()
+    }
+
+    /// 将旧版周/月/年循环统一迁移为「循环」模式
+    mutating func normalizeLegacyRepeatMode() {
+        switch repeatMode {
+        case .weekly:
+            repeatMode = .custom
+            customRepeatInterval = max(1, customRepeatInterval)
+            customRepeatPeriod = .week
+        case .monthly:
+            repeatMode = .custom
+            customRepeatInterval = max(1, customRepeatInterval)
+            customRepeatPeriod = .month
+        case .yearly:
+            repeatMode = .custom
+            customRepeatInterval = max(1, customRepeatInterval)
+            customRepeatPeriod = .year
+        case .none, .custom:
+            break
+        }
     }
 
     init(from decoder: Decoder) throws {
@@ -1567,6 +3598,7 @@ struct TodoItem: Identifiable, Codable, Hashable {
         createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
         plannedDate = try container.decodeIfPresent(Date.self, forKey: .plannedDate)
         endDate = try container.decodeIfPresent(Date.self, forKey: .endDate)
+        workStartedAt = try container.decodeIfPresent(Date.self, forKey: .workStartedAt)
         completedDate = try container.decodeIfPresent(Date.self, forKey: .completedDate)
         completionDurationSeconds = try container.decodeIfPresent(Int.self, forKey: .completionDurationSeconds)
         timeSlotStartHour = try container.decodeIfPresent(Int.self, forKey: .timeSlotStartHour) ?? 0
@@ -1597,8 +3629,27 @@ struct TodoItem: Identifiable, Codable, Hashable {
             yearlyRepeatDays = []
         }
         if repeatMode == .none, !weeklyRepeatWeekdays.isEmpty {
-            repeatMode = .weekly
+            repeatMode = .custom
+            customRepeatInterval = 1
+            customRepeatPeriod = .week
         }
+        repeatLimitKind = try container.decodeIfPresent(TodoRepeatLimitKind.self, forKey: .repeatLimitKind) ?? .unset
+        repeatUntilDate = try container.decodeIfPresent(Date.self, forKey: .repeatUntilDate)
+        repeatMaxOccurrences = try container.decodeIfPresent(Int.self, forKey: .repeatMaxOccurrences)
+        if repeatUntilDate == nil, repeatMaxOccurrences == nil {
+            repeatLimitKind = .unset
+        }
+        customRepeatInterval = max(1, try container.decodeIfPresent(Int.self, forKey: .customRepeatInterval) ?? 1)
+        customRepeatPeriod = try container.decodeIfPresent(TodoCustomRepeatPeriod.self, forKey: .customRepeatPeriod) ?? .week
+        recurringCycleStatus = try container.decodeIfPresent(
+            TodoRecurringCycleStatus.self,
+            forKey: .recurringCycleStatus
+        ) ?? .active
+        recurringCompletedOccurrences = max(
+            0,
+            try container.decodeIfPresent(Int.self, forKey: .recurringCompletedOccurrences) ?? 0
+        )
+        recurringCompletionRateBasis = try container.decodeIfPresent(Int.self, forKey: .recurringCompletionRateBasis)
         let dayStart = Calendar.current.startOfDay(for: createdAt)
         if plannedDate == nil {
             plannedDate = dayStart
@@ -1606,6 +3657,7 @@ struct TodoItem: Identifiable, Codable, Hashable {
         if endDate == nil {
             endDate = dayStart
         }
+        normalizeLegacyRepeatMode()
     }
 
     func encode(to encoder: Encoder) throws {
@@ -1619,6 +3671,7 @@ struct TodoItem: Identifiable, Codable, Hashable {
         try container.encode(createdAt, forKey: .createdAt)
         try container.encodeIfPresent(plannedDate, forKey: .plannedDate)
         try container.encodeIfPresent(endDate, forKey: .endDate)
+        try container.encodeIfPresent(workStartedAt, forKey: .workStartedAt)
         try container.encodeIfPresent(completedDate, forKey: .completedDate)
         try container.encodeIfPresent(completionDurationSeconds, forKey: .completionDurationSeconds)
         try container.encode(timeSlotStartHour, forKey: .timeSlotStartHour)
@@ -1635,6 +3688,14 @@ struct TodoItem: Identifiable, Codable, Hashable {
         try container.encode(Array(yearlyRepeatDays).sorted {
             $0.month != $1.month ? $0.month < $1.month : $0.day < $1.day
         }, forKey: .yearlyRepeatDays)
+        try container.encode(repeatLimitKind, forKey: .repeatLimitKind)
+        try container.encodeIfPresent(repeatUntilDate, forKey: .repeatUntilDate)
+        try container.encodeIfPresent(repeatMaxOccurrences, forKey: .repeatMaxOccurrences)
+        try container.encode(customRepeatInterval, forKey: .customRepeatInterval)
+        try container.encode(customRepeatPeriod, forKey: .customRepeatPeriod)
+        try container.encode(recurringCycleStatus, forKey: .recurringCycleStatus)
+        try container.encode(recurringCompletedOccurrences, forKey: .recurringCompletedOccurrences)
+        try container.encodeIfPresent(recurringCompletionRateBasis, forKey: .recurringCompletionRateBasis)
     }
 
     func hash(into hasher: inout Hasher) {
@@ -1647,6 +3708,8 @@ struct TodoItem: Identifiable, Codable, Hashable {
 }
 
 extension TodoItem {
+    var isRecurring: Bool { repeatMode != .none }
+
     /// 月重复：将所选「日」解析为指定年月的实际触发日；无该日且未开启月末回退时返回 nil（跳过该月）
     static func resolvedMonthlyRepeatDay(
         _ selectedDay: Int,
@@ -1665,21 +3728,98 @@ extension TodoItem {
         return usesLastDayFallback ? lastDay : nil
     }
 
-    /// 判断指定日期是否命中月重复规则
+    /// 判断指定日期是否命中月重复规则（以计划日期为锚点）
     func matchesMonthlyRepeat(on date: Date, calendar: Calendar = .current) -> Bool {
-        guard repeatMode == .monthly, !monthlyRepeatDays.isEmpty else { return false }
+        guard repeatMode == .monthly, let plannedDate else { return false }
+        let anchorDay = calendar.component(.day, from: plannedDate)
         let day = calendar.component(.day, from: date)
         let month = calendar.component(.month, from: date)
         let year = calendar.component(.year, from: date)
-        return monthlyRepeatDays.contains { selectedDay in
-            Self.resolvedMonthlyRepeatDay(
-                selectedDay,
-                month: month,
-                year: year,
-                usesLastDayFallback: monthlyRepeatUsesLastDayFallback,
-                calendar: calendar
-            ) == day
+        return Self.resolvedMonthlyRepeatDay(
+            anchorDay,
+            month: month,
+            year: year,
+            usesLastDayFallback: monthlyRepeatUsesLastDayFallback,
+            calendar: calendar
+        ) == day
+    }
+
+    /// 判断指定日期是否命中周重复规则（以计划日期的星期为锚点，周一=1 … 周日=7）
+    func matchesWeeklyRepeat(on date: Date, calendar: Calendar = .current) -> Bool {
+        guard repeatMode == .weekly, let plannedDate else { return false }
+        return Self.weekdayIndex(for: date, calendar: calendar)
+            == Self.weekdayIndex(for: plannedDate, calendar: calendar)
+    }
+
+    /// 判断指定日期是否命中年重复规则（以计划日期的月-日为锚点）
+    func matchesYearlyRepeat(on date: Date, calendar: Calendar = .current) -> Bool {
+        guard repeatMode == .yearly, let plannedDate else { return false }
+        let plannedMonth = calendar.component(.month, from: plannedDate)
+        let plannedDay = calendar.component(.day, from: plannedDate)
+        let month = calendar.component(.month, from: date)
+        let day = calendar.component(.day, from: date)
+        return month == plannedMonth && day == plannedDay
+    }
+
+    /// 判断指定日期是否命中自定义循环规则（以计划日期为锚点）
+    func matchesCustomRepeat(on date: Date, calendar: Calendar = .current) -> Bool {
+        guard repeatMode == .custom, let plannedDate else { return false }
+        let anchor = calendar.startOfDay(for: plannedDate)
+        let target = calendar.startOfDay(for: date)
+        guard target >= anchor else { return false }
+
+        let interval = max(1, customRepeatInterval)
+        switch customRepeatPeriod {
+        case .minute, .hour:
+            guard let anchorDateTime = plannedDateTimeAnchor(calendar: calendar) else { return false }
+            let targetDateTime = calendar.date(
+                bySettingHour: min(max(plannedTimeSlotHour, 0), 23),
+                minute: min(max(plannedTimeSlotMinute, 0), 59),
+                second: 0,
+                of: target
+            ) ?? target
+            guard targetDateTime >= anchorDateTime else { return false }
+            let delta: Int
+            if customRepeatPeriod == .minute {
+                delta = calendar.dateComponents([.minute], from: anchorDateTime, to: targetDateTime).minute ?? 0
+            } else {
+                delta = calendar.dateComponents([.hour], from: anchorDateTime, to: targetDateTime).hour ?? 0
+            }
+            guard delta >= 0 else { return false }
+            return delta % interval == 0
+        case .day:
+            let days = calendar.dateComponents([.day], from: anchor, to: target).day ?? 0
+            return days % interval == 0
+        case .week:
+            let days = calendar.dateComponents([.day], from: anchor, to: target).day ?? 0
+            guard days >= 0, days % 7 == 0 else { return false }
+            return (days / 7) % interval == 0
+        case .month:
+            let months = calendar.dateComponents([.month], from: anchor, to: target).month ?? 0
+            guard months >= 0, months % interval == 0 else { return false }
+            guard let expected = calendar.date(byAdding: .month, value: months, to: anchor) else { return false }
+            return calendar.isDate(expected, inSameDayAs: target)
+        case .year:
+            let years = calendar.dateComponents([.year], from: anchor, to: target).year ?? 0
+            guard years >= 0, years % interval == 0 else { return false }
+            guard let expected = calendar.date(byAdding: .year, value: years, to: anchor) else { return false }
+            return calendar.isDate(expected, inSameDayAs: target)
         }
+    }
+
+    func matchesRepeat(on date: Date, calendar: Calendar = .current) -> Bool {
+        switch repeatMode {
+        case .none: return false
+        case .weekly: return matchesWeeklyRepeat(on: date, calendar: calendar)
+        case .monthly: return matchesMonthlyRepeat(on: date, calendar: calendar)
+        case .yearly: return matchesYearlyRepeat(on: date, calendar: calendar)
+        case .custom: return matchesCustomRepeat(on: date, calendar: calendar)
+        }
+    }
+
+    static func weekdayIndex(for date: Date, calendar: Calendar = .current) -> Int {
+        let weekday = calendar.component(.weekday, from: date)
+        return weekday == 1 ? 7 : weekday - 1
     }
 
     /// 规范化后的起止（时、分）；结束可表示为 24:00；非法时回退为 0:00–1:00
@@ -1723,12 +3863,12 @@ extension TodoItem {
     }
 
     var timeSlotDisplayText: String {
-        let c = normalizedTimeSlotHM
-        func p(_ m: Int) -> String { String(format: "%02d", m) }
-        if c.eh == 24 {
-            return "\(c.sh):\(p(c.sm)) - 24:00"
-        }
-        return "\(c.sh):\(p(c.sm)) - \(c.eh):\(p(c.em))"
+        "\(plannedDateOnlyDisplayText) \(plannedTimeSlotDisplayText)"
+    }
+
+    /// 今日待办卡片副标题：仅显示开始时刻
+    var todayCardTimeDisplayText: String {
+        timeSlotStartDisplayText
     }
 
     var timeSlotStartDisplayText: String {
@@ -1773,13 +3913,20 @@ extension TodoItem {
         Self.durationDisplayText(seconds: timeSlotDurationSeconds)
     }
 
-    /// 投入时长文案（已完成取记录；未完成取计时器累计）
-    func investedDurationDisplayText(liveTimerSeconds: Int) -> String {
+    var timeSlotDurationUsesMultilineDisplay: Bool {
+        timeSlotDurationDisplayText.contains("\n")
+    }
+
+    /// 投入时长文案；未开始计时时返回 nil（展示占位横线）
+    func investedDurationDisplayText(liveTimerSeconds: Int) -> String? {
         if isCompleted, let sec = completionDurationSeconds, sec >= 0 {
             return Self.durationDisplayText(seconds: sec)
         }
         if liveTimerSeconds > 0 {
             return Self.durationDisplayText(seconds: liveTimerSeconds)
+        }
+        if workStartedAt == nil {
+            return nil
         }
         return "0 分钟"
     }
@@ -1793,7 +3940,9 @@ extension TodoItem {
         let h = seconds / 3600
         let m = (seconds % 3600) / 60
         if m == 0 { return h == 1 ? "1 小时" : "\(h) 小时" }
-        return "\(h) 小时 \(m) 分钟"
+        let hourText = h == 1 ? "1 小时" : "\(h) 小时"
+        let minuteText = m == 1 ? "1 分钟" : "\(m) 分钟"
+        return "\(hourText)\n\(minuteText)"
     }
 
     /// 详情页：创建日期 yyyy-MM-dd
@@ -1804,6 +3953,111 @@ extension TodoItem {
     /// 详情页：计划日期 yyyy-MM-dd
     var plannedDateOnlyDisplayText: String {
         TodoDetailDateFormatting.dateOnly.string(from: plannedDate ?? createdAt)
+    }
+
+    /// 详情页：循环截止日期 yyyy-MM-dd
+    var repeatUntilDateOnlyDisplayText: String? {
+        repeatUntilDate.map { TodoDetailDateFormatting.dateOnly.string(from: $0) }
+    }
+
+    var isInfiniteRepeat: Bool {
+        repeatUntilDate == nil && repeatMaxOccurrences == nil
+    }
+
+    var repeatDeadlineSummaryText: String {
+        repeatUntilDateOnlyDisplayText ?? "—"
+    }
+
+    var repeatCountSummaryText: String {
+        repeatMaxOccurrences.map { "\($0) 次" } ?? "—"
+    }
+
+    var recurringNextOccurrenceStart: Date {
+        plannedDateTimeAnchor() ?? plannedDate ?? createdAt
+    }
+
+    func plannedDateTimeAnchor(calendar: Calendar = .current) -> Date? {
+        let base = plannedDate ?? createdAt
+        var components = calendar.dateComponents([.year, .month, .day], from: base)
+        components.hour = min(max(plannedTimeSlotHour, 0), 23)
+        components.minute = min(max(plannedTimeSlotMinute, 0), 59)
+        components.second = 0
+        return calendar.date(from: components)
+    }
+
+    func recurringNextStartTimePhrase(at now: Date = Date()) -> String? {
+        let target = recurringNextOccurrenceStart
+        guard target > now else { return nil }
+
+        let calendar = Calendar.current
+        let components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: now, to: target)
+        let years = components.year ?? 0
+        let months = components.month ?? 0
+        let days = components.day ?? 0
+        let hours = components.hour ?? 0
+        let minutes = components.minute ?? 0
+
+        if years >= 1 {
+            return "\(years)年后"
+        }
+        if months >= 1 {
+            return "\(months)月后"
+        }
+        if days >= 7 {
+            let weeks = days / 7
+            return "\(weeks)周后"
+        }
+        if days >= 1 {
+            return "\(days)天后"
+        }
+        if hours >= 1 {
+            return "\(hours)小时后"
+        }
+        if minutes >= 1 {
+            return "\(minutes)分钟后"
+        }
+        return "马上"
+    }
+
+    /// 循环方法标签（不含次数、截止等规则）
+    var recurringMethodTag: String? {
+        guard repeatMode != .none else { return nil }
+        if !weeklyRepeatWeekdays.isEmpty,
+           let weekLabel = TodoWeekdayCatalog.compactWeeklyTag(from: weeklyRepeatWeekdays) {
+            return weekLabel
+        }
+        return customRepeatPeriod.recurringTag(interval: customRepeatInterval)
+    }
+
+    var recurringCompletionRatePercent: Int? {
+        let basis = recurringCompletionRateBasis ?? repeatMaxOccurrences
+        guard let basis, basis > 0 else { return nil }
+        return min(100, (recurringCompletedOccurrences * 100 + basis / 2) / basis)
+    }
+
+    var recurringStatusDisplayName: String {
+        if isCompleted { return "已完成" }
+        return recurringCycleStatus.displayName
+    }
+
+    /// 详情页：实际开始日期（首次计时）
+    var workStartedDateOnlyDisplayText: String? {
+        workStartedAt.map { TodoDetailDateFormatting.dateOnly.string(from: $0) }
+    }
+
+    /// 详情页：实际开始时间段
+    var workStartedSlotDisplayText: String? {
+        workStartedAt.map { TodoDetailDateFormatting.timeOnly.string(from: $0) }
+    }
+
+    /// 详情页：实际完成日期
+    var actualCompletedDateOnlyDisplayText: String? {
+        completedDate.map { TodoDetailDateFormatting.dateOnly.string(from: $0) }
+    }
+
+    /// 详情页：实际完成时间段
+    var actualCompletedSlotDisplayText: String? {
+        completedDate.map { TodoDetailDateFormatting.timeOnly.string(from: $0) }
     }
 
     /// 详情页：结束日期 yyyy-MM-dd
@@ -1927,24 +4181,24 @@ private enum AddTodoFormMode: String, CaseIterable, Identifiable {
 
 // MARK: - 新建待办（自定义底部面板）
 private struct AddTodoSheet: View {
-    private enum TimeField { case start, end, duration }
+    private enum PlannedTimeField { case date, timeSlot, duration }
 
     @ObservedObject var viewModel: TodoViewModel
     var panelExpanded: Bool
     let onDismiss: () -> Void
     @State private var formMode: AddTodoFormMode = .task
     @State private var selectedCategoryId: Int = TodoLifeCategoryCatalog.available[0].taskCategoryId
+    @State private var selectedPriority: TodoPriority = .p3
+    @State private var showsCategoryPicker = false
     @State private var titleText = ""
     @State private var descriptionText = ""
-    @State private var startTime: Date
-    @State private var endTime: Date
+    @State private var plannedDate: Date
+    @State private var plannedTime: Date
     @State private var durationHours: Int = 1
     @State private var durationMinutes: Int = 0
-    @State private var showsEndTime = false
-    @State private var showsDuration = false
-    @State private var expandedTimeField: TimeField?
-    @State private var draftStartTime: Date
-    @State private var draftEndTime: Date
+    @State private var expandedPlannedField: PlannedTimeField?
+    @State private var draftPlannedDate: Date
+    @State private var draftPlannedTime: Date
     @State private var draftDurationHours: Int = 1
     @State private var draftDurationMinutes: Int = 0
     @State private var allowTitleKeyboard = true
@@ -1957,45 +4211,41 @@ private struct AddTodoSheet: View {
         return f
     }()
 
+    private static let dateYMDFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "zh_CN")
+        return f
+    }()
+
     init(viewModel: TodoViewModel, panelExpanded: Bool, onDismiss: @escaping () -> Void) {
         self.viewModel = viewModel
         self.panelExpanded = panelExpanded
         self.onDismiss = onDismiss
-        _startTime = State(initialValue: Self.defaultStartTime())
-        _endTime = State(initialValue: Self.defaultStartTime())
-        let start = Self.defaultStartTime()
-        _draftStartTime = State(initialValue: start)
-        _draftEndTime = State(initialValue: start)
+        let today = Calendar.current.startOfDay(for: Date())
+        let time = Self.defaultPlannedTime()
+        _plannedDate = State(initialValue: today)
+        _plannedTime = State(initialValue: time)
+        _draftPlannedDate = State(initialValue: today)
+        _draftPlannedTime = State(initialValue: time)
     }
 
-    private static func defaultStartTime() -> Date {
+    private static func defaultPlannedTime() -> Date {
         let cal = Calendar.current
         let now = Date()
         return cal.date(from: cal.dateComponents([.year, .month, .day, .hour, .minute], from: now)) ?? now
     }
 
-    private static func endDateIfNotAfterStart(start: Date, end: Date) -> Date {
-        let cal = Calendar.current
-        let s = cal.component(.hour, from: start) * 60 + cal.component(.minute, from: start)
-        let e = cal.component(.hour, from: end) * 60 + cal.component(.minute, from: end)
-        if e > s { return end }
-        return cal.date(byAdding: .hour, value: 1, to: start) ?? end
-    }
-
-    private var totalDurationMinutes: Int {
-        durationHours * 60 + durationMinutes
-    }
-
     private func applyDefaultTimeSlot() {
-        let start = Self.defaultStartTime()
-        startTime = start
-        endTime = start
+        let today = Calendar.current.startOfDay(for: Date())
+        let time = Self.defaultPlannedTime()
+        plannedDate = today
+        plannedTime = time
         durationHours = 1
         durationMinutes = 0
-        showsEndTime = false
-        showsDuration = false
-        expandedTimeField = nil
+        expandedPlannedField = nil
         selectedCategoryId = TodoLifeCategoryCatalog.available[0].taskCategoryId
+        selectedPriority = .p3
         formMode = .task
         titleText = ""
         descriptionText = ""
@@ -2004,7 +4254,7 @@ private struct AddTodoSheet: View {
 
     private func dismissAllInputs() {
         isNotesFieldFocused = false
-        expandedTimeField = nil
+        expandedPlannedField = nil
         allowTitleKeyboard = false
         UIApplication.shared.sendAction(
             #selector(UIResponder.resignFirstResponder),
@@ -2018,30 +4268,17 @@ private struct AddTodoSheet: View {
         let t = titleText.trimmingCharacters(in: .whitespacesAndNewlines)
         let d = descriptionText.trimmingCharacters(in: .whitespacesAndNewlines)
         let cal = Calendar.current
-        let resolvedEnd: Date
-        if showsEndTime {
-            resolvedEnd = Self.endDateIfNotAfterStart(start: startTime, end: endTime)
-        } else if showsDuration {
-            resolvedEnd = Calendar.current.date(
-                byAdding: .minute,
-                value: max(1, totalDurationMinutes),
-                to: startTime
-            ) ?? startTime
-        } else {
-            resolvedEnd = Self.endDateIfNotAfterStart(start: startTime, end: endTime)
-        }
-        let sh = cal.component(.hour, from: startTime)
-        let sm = cal.component(.minute, from: startTime)
-        let eh = cal.component(.hour, from: resolvedEnd)
-        let em = cal.component(.minute, from: resolvedEnd)
+        let hour = cal.component(.hour, from: plannedTime)
+        let minute = cal.component(.minute, from: plannedTime)
         viewModel.addTodo(
             title: t.isEmpty ? "未命名待办" : t,
             description: d.isEmpty ? nil : d,
-            timeSlotStartHour: sh,
-            timeSlotStartMinute: sm,
-            timeSlotEndHour: eh,
-            timeSlotEndMinute: em,
-            taskCategoryId: selectedCategoryId
+            plannedDate: plannedDate,
+            plannedTimeSlotHour: hour,
+            plannedTimeSlotMinute: minute,
+            plannedDurationMinutes: max(1, durationHours * 60 + durationMinutes),
+            taskCategoryId: selectedCategoryId,
+            priority: selectedPriority
         )
         titleText = ""
         descriptionText = ""
@@ -2135,180 +4372,161 @@ private struct AddTodoSheet: View {
         }
     }
 
+    private var selectedCategoryOption: TodoLifeCategoryOption? {
+        TodoLifeCategoryCatalog.option(for: selectedCategoryId)
+    }
+
     @ViewBuilder
     private var categoryPickerSection: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("分类")
+                .font(.headline)
+                .foregroundStyle(MindFlowFormSheetStyle.accent)
+            Button {
+                dismissAllInputs()
+                showsCategoryPicker = true
+            } label: {
+                HStack(spacing: 10) {
+                    if let category = selectedCategoryOption {
+                        Text(category.title)
+                            .font(MindFlowFormSheetStyle.fieldFont)
+                            .foregroundStyle(MindFlowFormSheetStyle.accent)
+                    } else {
+                        Text("选择分类")
+                            .font(MindFlowFormSheetStyle.fieldFont)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, minHeight: MindFlowFormSheetStyle.fieldContentMinHeight, alignment: .leading)
+                .padding(.horizontal, MindFlowFormSheetStyle.fieldHorizontalPadding)
+                .padding(.vertical, MindFlowFormSheetStyle.fieldVerticalPadding)
+                .background(addTodoInputFieldChrome)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("任务分类")
+        }
+    }
+
+    @ViewBuilder
+    private var priorityPickerSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("优先级")
+                .font(.headline)
+                .foregroundStyle(MindFlowFormSheetStyle.accent)
             HStack(spacing: 8) {
-                ForEach(TodoLifeCategoryCatalog.available) { category in
-                    let isSelected = selectedCategoryId == category.taskCategoryId
+                ForEach(TodoPriority.allCases, id: \.self) { priority in
+                    let isSelected = selectedPriority == priority
                     Button {
                         withAnimation(.easeInOut(duration: 0.15)) {
-                            selectedCategoryId = category.taskCategoryId
+                            selectedPriority = priority
                         }
                     } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: category.icon)
-                                .font(.caption.weight(.semibold))
-                            Text(category.title)
-                                .font(.subheadline)
-                        }
-                        .foregroundStyle(isSelected ? MindFlowFormSheetStyle.accent : Color.secondary)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(
-                            Capsule(style: .continuous)
-                                .fill(isSelected ? MindFlowFormSheetStyle.accentFill : Color.clear)
-                        )
-                        .overlay(
-                            Capsule(style: .continuous)
-                                .strokeBorder(
-                                    isSelected ? MindFlowFormSheetStyle.accent : MindFlowFormSheetStyle.fieldBorder,
-                                    style: StrokeStyle(
-                                        lineWidth: 1,
-                                        dash: isSelected ? [] : [4, 3]
-                                    )
-                                )
-                        )
+                        Text(priority.displayName)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(isSelected ? Color.white : MindFlowFormSheetStyle.accent)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(
+                                Capsule(style: .continuous)
+                                    .fill(isSelected ? MindFlowFormSheetStyle.accentAction : Color.clear)
+                            )
+                            .overlay(
+                                Capsule(style: .continuous)
+                                    .stroke(MindFlowFormSheetStyle.accentAction, lineWidth: isSelected ? 0 : 1)
+                            )
                     }
                     .buttonStyle(.plain)
                 }
             }
         }
-        .accessibilityLabel("任务分类")
     }
 
     private func timeButtonLabel(_ date: Date) -> String {
         Self.timeHMFormatter.string(from: date)
     }
 
+    private func dateButtonLabel(_ date: Date) -> String {
+        Self.dateYMDFormatter.string(from: date)
+    }
+
     private func durationCompactText() -> String {
-        let h = durationHours
-        let m = durationMinutes
-        if h > 0, m > 0 { return "\(h)时\(m)分" }
-        if h > 0 { return "\(h)时" }
-        if m > 0 { return "\(m)分" }
-        return "0分"
+        if durationHours > 0, durationMinutes > 0 { return "\(durationHours)时\(durationMinutes)分" }
+        if durationHours > 0 { return "\(durationHours)时" }
+        if durationMinutes > 0 { return "\(durationMinutes)分" }
+        return "1时"
     }
 
-    private func minutesFromStartToEnd(start: Date, end: Date) -> Int {
-        max(0, Int(end.timeIntervalSince(start) / 60))
-    }
-
-    private func applyDurationToEndTime() {
-        let total = max(1, totalDurationMinutes)
-        let cal = Calendar.current
-        endTime = cal.date(byAdding: .minute, value: total, to: startTime) ?? startTime
-        showsEndTime = true
-        showsDuration = true
-    }
-
-    private func applyEndTimeToDuration() {
-        let total = max(1, minutesFromStartToEnd(start: startTime, end: endTime))
-        durationHours = total / 60
-        durationMinutes = total % 60
-        showsDuration = true
-        showsEndTime = true
-    }
-
-    private func splitDurationIntoDraft(_ totalMinutes: Int) {
-        let total = max(1, totalMinutes)
-        draftDurationHours = min(23, total / 60)
-        draftDurationMinutes = total % 60
-        if draftDurationHours == 0, draftDurationMinutes == 0 {
-            draftDurationMinutes = 1
-        }
-    }
-
-    private func beginEditingTimeField(_ field: TimeField, onActivate: (() -> Void)? = nil) {
-        if expandedTimeField == field {
+    private func beginEditingPlannedField(_ field: PlannedTimeField) {
+        if expandedPlannedField == field {
             withAnimation(.easeInOut(duration: 0.2)) {
-                cancelTimePicker()
+                cancelPlannedPicker()
             }
             return
         }
-        onActivate?()
-        draftStartTime = startTime
-        draftEndTime = endTime
+        draftPlannedDate = plannedDate
+        draftPlannedTime = plannedTime
         draftDurationHours = durationHours
         draftDurationMinutes = durationMinutes
-        if field == .duration, !showsDuration {
-            splitDurationIntoDraft(totalDurationMinutes)
-        }
-        if field == .end, !showsEndTime {
-            draftEndTime = Calendar.current.date(byAdding: .hour, value: 1, to: startTime) ?? startTime
-        }
         withAnimation(.easeInOut(duration: 0.2)) {
-            expandedTimeField = field
+            expandedPlannedField = field
         }
     }
 
-    private func cancelTimePicker() {
-        expandedTimeField = nil
+    private func cancelPlannedPicker() {
+        expandedPlannedField = nil
     }
 
-    private func confirmTimePicker() {
-        guard let field = expandedTimeField else { return }
+    private func confirmPlannedPicker() {
+        guard let field = expandedPlannedField else { return }
         switch field {
-        case .start:
-            startTime = draftStartTime
-            if showsDuration {
-                applyDurationToEndTime()
-            } else if showsEndTime {
-                applyEndTimeToDuration()
-            }
-        case .end:
-            endTime = draftEndTime
-            applyEndTimeToDuration()
+        case .date:
+            plannedDate = Calendar.current.startOfDay(for: draftPlannedDate)
+        case .timeSlot:
+            plannedTime = draftPlannedTime
         case .duration:
             durationHours = draftDurationHours
             durationMinutes = draftDurationMinutes
-            applyDurationToEndTime()
+            if durationHours == 0, durationMinutes == 0 {
+                durationHours = 1
+            }
         }
         withAnimation(.easeInOut(duration: 0.2)) {
-            expandedTimeField = nil
+            expandedPlannedField = nil
         }
     }
 
     @ViewBuilder
-    private func timeSlotCell(
+    private func plannedTimeCell(
         label: String,
-        value: String?,
-        field: TimeField,
-        onActivate: (() -> Void)? = nil
+        value: String,
+        field: PlannedTimeField
     ) -> some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 8) {
             Text(label)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(MindFlowFormSheetStyle.accent)
             Button {
-                beginEditingTimeField(field, onActivate: onActivate)
+                beginEditingPlannedField(field)
             } label: {
-                Group {
-                    if let value {
-                        Text(value)
-                            .font(.subheadline)
-                            .foregroundStyle(MindFlowFormSheetStyle.accent)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.75)
-                    } else {
-                        Text(" ")
-                            .font(.subheadline)
-                            .accessibilityLabel("未设置")
-                    }
-                }
-                .frame(maxWidth: .infinity, minHeight: 22)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .strokeBorder(
-                            value == nil ? MindFlowFormSheetStyle.fieldBorder : MindFlowFormSheetStyle.accent.opacity(0.55),
-                            style: StrokeStyle(
-                                lineWidth: 1,
-                                dash: value == nil ? [4, 3] : []
+                Text(value)
+                    .font(.subheadline)
+                    .foregroundStyle(MindFlowFormSheetStyle.accent)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                    .frame(maxWidth: .infinity, minHeight: 22)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .strokeBorder(
+                                MindFlowFormSheetStyle.accent.opacity(0.55),
+                                lineWidth: 1
                             )
-                        )
-                )
+                    )
             }
             .buttonStyle(.plain)
         }
@@ -2320,29 +4538,30 @@ private struct AddTodoSheet: View {
     private var timePickerPanelHeight: CGFloat { timePickerWheelHeight + timePickerConfirmBarHeight }
 
     @ViewBuilder
-    private var timePickerWheels: some View {
+    private var plannedTimePickerWheels: some View {
         VStack(spacing: 0) {
             Group {
-                if expandedTimeField == .start {
-                    DatePicker("", selection: $draftStartTime, displayedComponents: .hourAndMinute)
+                if expandedPlannedField == .date {
+                    DatePicker("", selection: $draftPlannedDate, displayedComponents: .date)
                         .datePickerStyle(.wheel)
                         .labelsHidden()
-                } else if expandedTimeField == .end {
-                    DatePicker("", selection: $draftEndTime, displayedComponents: .hourAndMinute)
+                        .environment(\.locale, Locale(identifier: "zh_CN"))
+                } else if expandedPlannedField == .timeSlot {
+                    DatePicker("", selection: $draftPlannedTime, displayedComponents: .hourAndMinute)
                         .datePickerStyle(.wheel)
                         .labelsHidden()
-                } else if expandedTimeField == .duration {
+                } else if expandedPlannedField == .duration {
                     HStack(spacing: 0) {
                         Picker("时", selection: $draftDurationHours) {
-                            ForEach(0..<24, id: \.self) { h in
-                                Text("\(h) 小时").tag(h)
+                            ForEach(0..<24, id: \.self) { hour in
+                                Text("\(hour) 小时").tag(hour)
                             }
                         }
                         .pickerStyle(.wheel)
                         .frame(maxWidth: .infinity)
                         Picker("分", selection: $draftDurationMinutes) {
-                            ForEach(0..<60, id: \.self) { m in
-                                Text("\(m) 分钟").tag(m)
+                            ForEach(0..<60, id: \.self) { minute in
+                                Text("\(minute) 分钟").tag(minute)
                             }
                         }
                         .pickerStyle(.wheel)
@@ -2357,13 +4576,13 @@ private struct AddTodoSheet: View {
             HStack {
                 Button("取消") {
                     withAnimation(.easeInOut(duration: 0.2)) {
-                        cancelTimePicker()
+                        cancelPlannedPicker()
                     }
                 }
                 .foregroundStyle(.secondary)
                 Spacer()
                 Button("确定") {
-                    confirmTimePicker()
+                    confirmPlannedPicker()
                 }
                 .font(.body.weight(.semibold))
                 .foregroundStyle(MindFlowFormSheetStyle.accentAction)
@@ -2378,38 +4597,34 @@ private struct AddTodoSheet: View {
     }
 
     @ViewBuilder
-    private var timeSlotSection: some View {
+    private var plannedTimeSection: some View {
         HStack(alignment: .bottom, spacing: 8) {
-            timeSlotCell(
-                label: "起始",
-                value: timeButtonLabel(startTime),
-                field: .start
+            plannedTimeCell(
+                label: "计划日期",
+                value: dateButtonLabel(plannedDate),
+                field: .date
             )
-            timeSlotCell(
-                label: "用时",
-                value: showsDuration ? durationCompactText() : nil,
-                field: .duration,
-                onActivate: {
-                    guard !showsDuration else { return }
-                    splitDurationIntoDraft(totalDurationMinutes)
-                }
+            plannedTimeCell(
+                label: "计划时间",
+                value: timeButtonLabel(plannedTime),
+                field: .timeSlot
             )
-            timeSlotCell(
-                label: "结束",
-                value: showsEndTime ? timeButtonLabel(endTime) : nil,
-                field: .end
+            plannedTimeCell(
+                label: "计划用时",
+                value: durationCompactText(),
+                field: .duration
             )
         }
         .overlay(alignment: .bottom) {
-            if expandedTimeField != nil {
-                timePickerWheels
+            if expandedPlannedField != nil {
+                plannedTimePickerWheels
                     .offset(y: -(timePickerPanelHeight + 6))
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .animation(.easeInOut(duration: 0.22), value: expandedTimeField)
-        .zIndex(expandedTimeField == nil ? 0 : 2)
-        .padding(.top, expandedTimeField == nil ? 0 : timePickerPanelHeight + 6)
+        .animation(.easeInOut(duration: 0.22), value: expandedPlannedField)
+        .zIndex(expandedPlannedField == nil ? 0 : 2)
+        .padding(.top, expandedPlannedField == nil ? 0 : timePickerPanelHeight + 6)
     }
 
     var body: some View {
@@ -2426,13 +4641,15 @@ private struct AddTodoSheet: View {
                         titleFieldSection
                         descriptionFieldSection
                         categoryPickerSection
-                        timeSlotSection
+                        priorityPickerSection
+                        plannedTimeSection
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 14)
                     .padding(.bottom, 8)
                 }
                 .scrollDismissesKeyboard(.interactively)
+                .mindFlowScrollContentBottomInset()
 
                 Button(action: submitTodo) {
                     Text("创建")
@@ -2460,6 +4677,14 @@ private struct AddTodoSheet: View {
             }
         }
         .background(Color.white)
+        .sheet(isPresented: $showsCategoryPicker) {
+            TodoDetailCategoryPickerSheet(
+                selectedCategoryId: selectedCategoryId,
+                onSelect: { categoryId in
+                    selectedCategoryId = categoryId
+                }
+            )
+        }
         .onChange(of: panelExpanded) { _, open in
             if open {
                 applyDefaultTimeSlot()
@@ -2494,6 +4719,13 @@ private enum TodoDetailDateFormatting {
     static let dateOnly: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "zh_CN")
+        return f
+    }()
+
+    static let timeOnly: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
         f.locale = Locale(identifier: "zh_CN")
         return f
     }()
@@ -2545,12 +4777,20 @@ private struct TodoDetailTitleCard: View {
         Text(todo.title)
             .font(.headline.weight(.semibold))
             .foregroundColor(Color(hex: "#2B5748"))
-            .todoRaisedStrikethrough(todo.isCompleted)
             .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity, minHeight: TodoRowCardMetrics.detailInlineCardMinHeight, alignment: .center)
             .padding(.horizontal, 16)
             .padding(.vertical, TodoRowCardMetrics.detailInlineCardVerticalPadding)
             .todoPanelCardChrome()
+    }
+}
+
+private struct TodoDetailTimePlaceholderDash: View {
+    var body: some View {
+        Text("—")
+            .font(.headline.weight(.semibold))
+            .foregroundStyle(MindFlowFormSheetStyle.accent)
+            .frame(minWidth: 36)
     }
 }
 
@@ -2648,10 +4888,6 @@ private enum TodoDetailMomentPickerMetrics {
 
 private struct TodoDetailNoteTextView: UIViewRepresentable {
     @Binding var text: String
-    let lineSpacing: CGFloat
-    let maxCharactersPerLine: Int
-    let maxLines: Int
-    let onLineCountChange: (Int) -> Void
     var onEndEditing: () -> Void = {}
 
     func makeCoordinator() -> Coordinator {
@@ -2661,42 +4897,35 @@ private struct TodoDetailNoteTextView: UIViewRepresentable {
     func makeUIView(context: Context) -> UITextView {
         let textView = UITextView()
         textView.backgroundColor = .clear
-        textView.textContainerInset = UIEdgeInsets(
-            top: TodoRowCardMetrics.detailNoteInputVerticalPadding,
-            left: TodoRowCardMetrics.detailNoteInputHorizontalPadding,
-            bottom: TodoRowCardMetrics.detailNoteInputVerticalPadding,
-            right: TodoRowCardMetrics.detailNoteInputHorizontalPadding
-        )
+        textView.textContainerInset = .zero
         textView.textContainer.lineFragmentPadding = 0
         textView.textContainer.widthTracksTextView = true
-        textView.textContainer.lineBreakMode = .byCharWrapping
+        textView.textContainer.lineBreakMode = .byWordWrapping
         textView.font = Self.noteFont
         textView.textColor = UIColor(Color(hex: "#2B5748"))
         textView.delegate = context.coordinator
-        textView.isScrollEnabled = false
-        textView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        textView.attributedText = Self.attributedText(text, lineSpacing: lineSpacing)
+        textView.isScrollEnabled = true
+        textView.showsVerticalScrollIndicator = true
+        textView.returnKeyType = .default
+        textView.text = Self.sanitizeLegacyText(text)
         return textView
     }
 
     func updateUIView(_ textView: UITextView, context: Context) {
         context.coordinator.parent = self
-        context.coordinator.refreshCharacterLimit(for: textView)
         guard !context.coordinator.isUpdatingText else { return }
-        if textView.markedTextRange == nil, textView.text != text {
+        guard textView.markedTextRange == nil else { return }
+        guard !textView.isFirstResponder else { return }
+
+        let sanitized = Self.sanitizeLegacyText(text)
+        if textView.text != sanitized {
             let selectedRange = textView.selectedRange
-            textView.attributedText = Self.attributedText(text, lineSpacing: lineSpacing)
-            textView.selectedRange = selectedRange
-        }
-        textView.isScrollEnabled = false
-        if Self.visualLineCount(
-            for: text,
-            lineMaxWidth: context.coordinator.effectiveLineMaxWidth,
-            font: Self.noteFont,
-            maxCharactersPerLine: context.coordinator.effectiveMaxCharactersPerLine,
-            maxLines: maxLines
-        ) >= maxLines {
-            textView.contentOffset = .zero
+            textView.text = sanitized
+            let clampedLocation = min(
+                max(0, selectedRange.location),
+                (sanitized as NSString).length
+            )
+            textView.selectedRange = NSRange(location: clampedLocation, length: 0)
         }
     }
 
@@ -2705,270 +4934,28 @@ private struct TodoDetailNoteTextView: UIViewRepresentable {
         return UIFont.systemFont(ofSize: base.pointSize, weight: .semibold)
     }()
 
-    static func visualLineCount(
-        for text: String,
-        lineMaxWidth: CGFloat,
-        font: UIFont,
-        maxCharactersPerLine: Int,
-        maxLines: Int
-    ) -> Int {
-        let wrapped = normalizedNoteText(
-            text,
-            lineMaxWidth: lineMaxWidth,
-            font: font,
-            maxCharactersPerLine: maxCharactersPerLine,
-            maxLines: maxLines
-        )
-        let count = wrapped.isEmpty ? 1 : wrapped.components(separatedBy: "\n").count
-        return max(1, min(maxLines, count))
-    }
-
-    static func normalizedNoteText(
-        _ text: String,
-        lineMaxWidth: CGFloat,
-        font: UIFont,
-        maxCharactersPerLine: Int,
-        maxLines: Int
-    ) -> String {
-        let charLimit = max(1, maxCharactersPerLine)
-        let widthLimit = max(1, lineMaxWidth)
-        var wrappedLines: [String] = []
-
-        for rawLine in text.components(separatedBy: "\n") {
-            if wrappedLines.count >= maxLines { break }
-
-            if rawLine.isEmpty {
-                wrappedLines.append("")
-                continue
-            }
-
-            var currentLine = ""
-            for character in rawLine {
-                let nextLine = currentLine + String(character)
-                let nextWidth = (nextLine as NSString).size(withAttributes: [.font: font]).width
-                let exceedsWidth = !currentLine.isEmpty && nextWidth > widthLimit
-                let exceedsCharCount = currentLine.count >= charLimit
-
-                if exceedsWidth || exceedsCharCount {
-                    if wrappedLines.count >= maxLines {
-                        if wrappedLines.count == maxLines, !wrappedLines.isEmpty {
-                            var lastLine = wrappedLines[wrappedLines.count - 1]
-                            let candidate = lastLine + String(character)
-                            if candidate.count <= charLimit,
-                               (candidate as NSString).size(withAttributes: [.font: font]).width <= widthLimit {
-                                wrappedLines[wrappedLines.count - 1] = candidate
-                            }
-                        }
-                        continue
-                    }
-                    wrappedLines.append(currentLine)
-                    currentLine = String(character)
-                    if wrappedLines.count >= maxLines {
-                        if !currentLine.isEmpty, wrappedLines.count < maxLines {
-                            wrappedLines.append(currentLine)
-                        }
-                        currentLine = ""
-                        break
-                    }
-                } else {
-                    currentLine = nextLine
-                }
-            }
-
-            if !currentLine.isEmpty, wrappedLines.count < maxLines {
-                wrappedLines.append(currentLine)
-            }
-        }
-
-        if wrappedLines.isEmpty {
-            return ""
-        }
-        return wrappedLines.joined(separator: "\n")
-    }
-
-    static func attributedText(_ text: String, lineSpacing: CGFloat) -> NSAttributedString {
-        let paragraph = NSMutableParagraphStyle()
-        paragraph.lineSpacing = lineSpacing
-        paragraph.lineBreakMode = .byCharWrapping
-        return NSAttributedString(
-            string: text,
-            attributes: [
-                .font: noteFont,
-                .foregroundColor: UIColor(Color(hex: "#2B5748")),
-                .paragraphStyle: paragraph
-            ]
-        )
+    static func sanitizeLegacyText(_ text: String) -> String {
+        text.replacingOccurrences(of: "\u{E000}", with: "\n")
     }
 
     final class Coordinator: NSObject, UITextViewDelegate {
         var parent: TodoDetailNoteTextView
         var isUpdatingText = false
-        var effectiveMaxCharactersPerLine: Int
-        var effectiveLineMaxWidth: CGFloat = 200
-        private var isComposingMarkedText = false
 
         init(parent: TodoDetailNoteTextView) {
             self.parent = parent
-            self.effectiveMaxCharactersPerLine = parent.maxCharactersPerLine
-        }
-
-        func refreshCharacterLimit(for textView: UITextView) {
-            let usableWidth = textView.bounds.width
-                - textView.textContainerInset.left
-                - textView.textContainerInset.right
-                - TodoRowCardMetrics.detailNoteInputRuledLineInset * 2
-            guard usableWidth > 20 else { return }
-
-            effectiveLineMaxWidth = usableWidth + Self.extraLineWidth(font: TodoDetailNoteTextView.noteFont)
-
-            let charWidth = "汉".size(withAttributes: [.font: TodoDetailNoteTextView.noteFont]).width
-            guard charWidth > 0 else { return }
-
-            let widthBased = Int(
-                floor(
-                    (usableWidth + Self.extraLineWidth(font: TodoDetailNoteTextView.noteFont)) / charWidth
-                        * TodoRowCardMetrics.detailNoteInputLineFillRatio
-                )
-            )
-            effectiveMaxCharactersPerLine = min(
-                parent.maxCharactersPerLine + TodoRowCardMetrics.detailNoteInputExtraCharacterCount,
-                max(10, widthBased)
-            )
-        }
-
-        private static func extraLineWidth(font: UIFont) -> CGFloat {
-            let charWidth = "汉".size(withAttributes: [.font: font]).width
-            return charWidth * CGFloat(TodoRowCardMetrics.detailNoteInputExtraCharacterCount)
-        }
-
-        func confirmedText(in textView: UITextView) -> String {
-            guard let markedRange = textView.markedTextRange else {
-                return textView.text ?? ""
-            }
-            guard
-                let beforeRange = textView.textRange(from: textView.beginningOfDocument, to: markedRange.start),
-                let afterRange = textView.textRange(from: markedRange.end, to: textView.endOfDocument)
-            else {
-                return textView.text ?? ""
-            }
-            let before = textView.text(in: beforeRange) ?? ""
-            let after = textView.text(in: afterRange) ?? ""
-            return before + after
-        }
-
-        private func setCompositionLayoutActive(_ active: Bool, for textView: UITextView) {
-            guard active != isComposingMarkedText else { return }
-            isComposingMarkedText = active
-            if active {
-                textView.textContainer.widthTracksTextView = false
-                textView.textContainer.lineBreakMode = .byClipping
-                let width = max(textView.bounds.width, 10_000)
-                textView.textContainer.size = CGSize(width: width, height: .greatestFiniteMagnitude)
-            } else {
-                textView.textContainer.widthTracksTextView = true
-                textView.textContainer.lineBreakMode = .byCharWrapping
-                textView.textContainer.size = CGSize(width: 0, height: 0)
-            }
-        }
-
-        private func reportLineCount(for confirmedText: String, textView: UITextView) {
-            let lineCount = TodoDetailNoteTextView.visualLineCount(
-                for: confirmedText,
-                lineMaxWidth: effectiveLineMaxWidth,
-                font: TodoDetailNoteTextView.noteFont,
-                maxCharactersPerLine: effectiveMaxCharactersPerLine,
-                maxLines: parent.maxLines
-            )
-            parent.onLineCountChange(lineCount)
-            textView.isScrollEnabled = false
-            if lineCount >= parent.maxLines {
-                textView.contentOffset = .zero
-            }
-        }
-
-        private func normalized(_ text: String) -> String {
-            TodoDetailNoteTextView.normalizedNoteText(
-                text,
-                lineMaxWidth: effectiveLineMaxWidth,
-                font: TodoDetailNoteTextView.noteFont,
-                maxCharactersPerLine: effectiveMaxCharactersPerLine,
-                maxLines: parent.maxLines
-            )
         }
 
         func textViewDidChange(_ textView: UITextView) {
-            refreshCharacterLimit(for: textView)
-
-            if textView.markedTextRange != nil {
-                setCompositionLayoutActive(true, for: textView)
-                let confirmed = confirmedText(in: textView)
-                reportLineCount(for: normalized(confirmed), textView: textView)
-                return
-            }
-
-            if isComposingMarkedText {
-                setCompositionLayoutActive(false, for: textView)
-            }
-
-            let incoming = textView.text ?? ""
-            let normalized = normalized(incoming)
             isUpdatingText = true
-            parent.text = normalized
+            parent.text = textView.text ?? ""
             isUpdatingText = false
-            reportLineCount(for: normalized, textView: textView)
-
-            guard incoming != normalized else { return }
-
-            let selectedRange = textView.selectedRange
-            textView.attributedText = TodoDetailNoteTextView.attributedText(
-                normalized,
-                lineSpacing: parent.lineSpacing
-            )
-            Self.restoreSelection(
-                in: textView,
-                normalized: normalized,
-                previousUTF16Length: (incoming as NSString).length,
-                previousSelectedLocation: selectedRange.location
-            )
-            if TodoDetailNoteTextView.visualLineCount(
-                for: normalized,
-                lineMaxWidth: effectiveLineMaxWidth,
-                font: TodoDetailNoteTextView.noteFont,
-                maxCharactersPerLine: effectiveMaxCharactersPerLine,
-                maxLines: parent.maxLines
-            ) >= parent.maxLines {
-                textView.contentOffset = .zero
-            }
-        }
-
-        private static func restoreSelection(
-            in textView: UITextView,
-            normalized: String,
-            previousUTF16Length: Int,
-            previousSelectedLocation: Int
-        ) {
-            let normalizedLength = (normalized as NSString).length
-            let insertDelta = normalizedLength - previousUTF16Length
-            let newLocation: Int
-            if insertDelta > 0, previousSelectedLocation >= max(0, previousUTF16Length - 1) {
-                newLocation = normalizedLength
-            } else {
-                newLocation = min(normalizedLength, max(0, previousSelectedLocation + insertDelta))
-            }
-            textView.selectedRange = NSRange(location: newLocation, length: 0)
         }
 
         func textViewDidEndEditing(_ textView: UITextView) {
             if textView.markedTextRange == nil {
-                let normalized = normalized(textView.text ?? "")
-                if textView.text != normalized {
-                    textView.attributedText = TodoDetailNoteTextView.attributedText(
-                        normalized,
-                        lineSpacing: parent.lineSpacing
-                    )
-                }
                 isUpdatingText = true
-                parent.text = normalized
+                parent.text = textView.text ?? ""
                 isUpdatingText = false
             }
             parent.onEndEditing()
@@ -2980,178 +4967,43 @@ private struct TodoDetailNoteCard: View {
     let initialText: String
     let onSave: (String) -> Void
     @State private var draft = ""
-    @State private var ruledLineCount = 1
-    @State private var animatedClipHeight: CGFloat = 0
-
-    private var inputBorderColor: Color {
-        Color(hex: "#2B5748").opacity(TodoRowCardMetrics.detailNoteInputBorderOpacity)
-    }
-
-    private var effectiveRowHeight: CGFloat {
-        TodoRowCardMetrics.detailNoteInputEffectiveRowHeight
-    }
-
-    private var ruledAreaHeight: CGFloat {
-        CGFloat(ruledLineCount) * effectiveRowHeight + 1
-    }
-
-    private var maxInputClipHeight: CGFloat {
-        CGFloat(TodoRowCardMetrics.detailNoteInputMaxLines) * effectiveRowHeight
-            + 1
-            + TodoRowCardMetrics.detailNoteInputContentTopInset
-    }
-
-    private var maxRuledAreaHeight: CGFloat {
-        CGFloat(TodoRowCardMetrics.detailNoteInputMaxLines) * effectiveRowHeight + 1
-    }
-
-    private var inputClipHeight: CGFloat {
-        if ruledLineCount >= TodoRowCardMetrics.detailNoteInputMaxLines {
-            return maxInputClipHeight
-        }
-        return max(animatedClipHeight, targetClipHeight)
-    }
-
-    private var targetClipHeight: CGFloat {
-        ruledAreaHeight + TodoRowCardMetrics.detailNoteInputContentTopInset
-    }
-
-    private var textViewHeight: CGFloat {
-        if ruledLineCount >= TodoRowCardMetrics.detailNoteInputMaxLines {
-            return maxRuledAreaHeight - 1
-        }
-        return ruledAreaHeight - 1
-    }
-
-    private var visibleRuledLineCount: Int {
-        if ruledLineCount >= TodoRowCardMetrics.detailNoteInputMaxLines {
-            return TodoRowCardMetrics.detailNoteInputMaxLines
-        }
-        if animatedClipHeight > targetClipHeight + 0.5 {
-            return estimatedLineCount(forClipHeight: animatedClipHeight)
-        }
-        return ruledLineCount
-    }
-
-    private func estimatedLineCount(forClipHeight clipHeight: CGFloat) -> Int {
-        guard effectiveRowHeight > 0 else { return 1 }
-        let contentHeight = max(0, clipHeight - TodoRowCardMetrics.detailNoteInputContentTopInset)
-        guard contentHeight > 1 else { return 1 }
-        let count = Int(ceil((contentHeight - 1) / effectiveRowHeight))
-        return max(1, min(TodoRowCardMetrics.detailNoteInputMaxLines, count))
-    }
-
-    private func syncRuledLineCount(with value: String) {
-        ruledLineCount = TodoDetailNoteTextView.visualLineCount(
-            for: value,
-            lineMaxWidth: estimatedLineMaxWidth,
-            font: TodoDetailNoteTextView.noteFont,
-            maxCharactersPerLine: TodoRowCardMetrics.detailNoteInputMaxCharactersPerLine,
-            maxLines: TodoRowCardMetrics.detailNoteInputMaxLines
-        )
-    }
-
-    private func syncAnimatedClipHeight(animated: Bool, previousLineCount: Int) {
-        let target = targetClipHeight
-        let isShrinking = ruledLineCount < previousLineCount
-        if animated && isShrinking {
-            withAnimation(TodoCardMotion.noteResize) {
-                animatedClipHeight = target
-            }
-        } else {
-            animatedClipHeight = target
-        }
-    }
-
-    private var estimatedLineMaxWidth: CGFloat {
-        let screenWidth = UIScreen.main.bounds.width
-        let horizontalInsets = 40 + (16 + TodoRowCardMetrics.detailNoteInputRuledLineInset) * 2
-        let textInsets = TodoRowCardMetrics.detailNoteInputHorizontalPadding * 2
-        let base = max(120, screenWidth - horizontalInsets - textInsets)
-        let extra = "汉".size(withAttributes: [.font: TodoDetailNoteTextView.noteFont]).width
-            * CGFloat(TodoRowCardMetrics.detailNoteInputExtraCharacterCount)
-        return base + extra
-    }
-
-    private func normalizedDraft(_ text: String) -> String {
-        TodoDetailNoteTextView.normalizedNoteText(
-            text,
-            lineMaxWidth: estimatedLineMaxWidth,
-            font: TodoDetailNoteTextView.noteFont,
-            maxCharactersPerLine: TodoRowCardMetrics.detailNoteInputMaxCharactersPerLine,
-            maxLines: TodoRowCardMetrics.detailNoteInputMaxLines
-        )
-    }
 
     var body: some View {
-        ZStack(alignment: .topLeading) {
-            VStack(spacing: 0) {
-                Color.clear
-                    .frame(height: effectiveRowHeight)
+        VStack(alignment: .leading, spacing: TodoRowCardMetrics.detailNoteTitleToInputSpacing) {
+            Text(TodoRowCardMetrics.detailNoteSectionTitle)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(MindFlowFormSheetStyle.accent)
+                .frame(maxWidth: .infinity, alignment: .center)
 
-                if visibleRuledLineCount > 1 {
-                    ForEach(1..<visibleRuledLineCount, id: \.self) { _ in
-                        Rectangle()
-                            .fill(inputBorderColor)
-                            .frame(height: 1)
-                        Color.clear
-                            .frame(height: effectiveRowHeight - 1)
+            ZStack(alignment: .topLeading) {
+                TodoDetailNoteTextView(
+                    text: $draft,
+                    onEndEditing: {
+                        onSave(draft)
                     }
+                )
+                .frame(maxWidth: .infinity)
+                .frame(height: TodoRowCardMetrics.detailNoteInputFixedHeight)
+
+                if draft.isEmpty {
+                    Text(TodoRowCardMetrics.detailNoteInputPlaceholder)
+                        .font(TodoRowCardMetrics.detailNoteContentFont)
+                        .foregroundStyle(Color.secondary.opacity(0.42))
+                        .allowsHitTesting(false)
                 }
-
-                Rectangle()
-                    .fill(inputBorderColor)
-                    .frame(height: 1)
-            }
-
-            TodoDetailNoteTextView(
-                text: $draft,
-                lineSpacing: TodoRowCardMetrics.detailNoteInputLineSpacing,
-                maxCharactersPerLine: TodoRowCardMetrics.detailNoteInputMaxCharactersPerLine,
-                maxLines: TodoRowCardMetrics.detailNoteInputMaxLines,
-                onLineCountChange: { count in
-                    let previous = ruledLineCount
-                    ruledLineCount = count
-                    if count >= TodoRowCardMetrics.detailNoteInputMaxLines {
-                        animatedClipHeight = maxInputClipHeight
-                    } else {
-                        syncAnimatedClipHeight(animated: true, previousLineCount: previous)
-                    }
-                },
-                onEndEditing: {
-                    onSave(draft)
-                }
-            )
-            .frame(maxWidth: .infinity)
-            .frame(height: textViewHeight)
-
-            if draft.isEmpty {
-                Text(TodoRowCardMetrics.detailNoteInputPlaceholder)
-                    .font(TodoRowCardMetrics.detailNoteContentFont)
-                    .foregroundStyle(Color.secondary.opacity(0.42))
-                    .padding(.horizontal, TodoRowCardMetrics.detailNoteInputHorizontalPadding)
-                    .padding(.vertical, TodoRowCardMetrics.detailNoteInputVerticalPadding)
-                    .allowsHitTesting(false)
             }
         }
-        .padding(.top, TodoRowCardMetrics.detailNoteInputContentTopInset)
-        .frame(height: inputClipHeight, alignment: .top)
-        .clipped()
-        .padding(.horizontal, 16 + TodoRowCardMetrics.detailNoteInputRuledLineInset)
+        .padding(.horizontal, 16)
         .padding(.vertical, TodoRowCardMetrics.detailInlineCardVerticalPadding)
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .todoPanelCardChrome()
         .onAppear {
-            draft = normalizedDraft(initialText)
-            syncRuledLineCount(with: draft)
-            syncAnimatedClipHeight(animated: false, previousLineCount: ruledLineCount)
+            draft = TodoDetailNoteTextView.sanitizeLegacyText(initialText)
         }
         .onChange(of: initialText) { _, newValue in
-            let normalized = normalizedDraft(newValue)
+            let normalized = TodoDetailNoteTextView.sanitizeLegacyText(newValue)
             if draft != normalized {
                 draft = normalized
-                syncRuledLineCount(with: normalized)
-                syncAnimatedClipHeight(animated: false, previousLineCount: ruledLineCount)
             }
         }
     }
@@ -3188,8 +5040,33 @@ private enum TodoWeekdayCatalog {
         }
     }
 
+    static func compactWeeklyTag(from days: Set<Int>) -> String? {
+        let workdays: Set<Int> = [1, 2, 3, 4, 5]
+        if days == workdays { return "工作日" }
+
+        let chars = displayOrder
+            .filter { days.contains($0) }
+            .compactMap { weekday -> String? in
+                switch weekday {
+                case 1: return "一"
+                case 2: return "二"
+                case 3: return "三"
+                case 4: return "四"
+                case 5: return "五"
+                case 6: return "六"
+                case 7: return "日"
+                default: return nil
+                }
+            }
+        guard !chars.isEmpty else { return nil }
+        return "每周" + chars.joined(separator: "、")
+    }
+
     static func displayString(from days: Set<Int>) -> String {
-        displayOrder
+        if let compact = compactWeeklyTag(from: days) {
+            return compact
+        }
+        return displayOrder
             .filter { days.contains($0) }
             .map { label(for: $0) }
             .joined(separator: " ")
@@ -3655,15 +5532,30 @@ private struct TodoDetailRepeatModeCard: View {
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            Text(mode.displayName)
-                .font(.title3.weight(.semibold))
+        ZStack {
+            Text(mode.cycleChipDisplayName)
+                .font(.title2.weight(.semibold))
                 .foregroundStyle(MindFlowFormSheetStyle.accent)
                 .frame(maxWidth: .infinity)
-                .frame(height: TodoRowCardMetrics.detailMetaRowCardHeight)
-                .todoPanelCardChrome()
+                .id(mode)
+                .transition(
+                    .asymmetric(
+                        insertion: .move(edge: .trailing).combined(with: .opacity),
+                        removal: .move(edge: .leading).combined(with: .opacity)
+                    )
+                )
         }
-        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity)
+        .frame(height: TodoRowCardMetrics.detailMetaRowCardHeight)
+        .clipped()
+        .animation(TodoCardMotion.slide, value: mode)
+        .todoPanelCardChrome()
+        .contentShape(Rectangle())
+        .onTapGesture {
+            withAnimation(TodoCardMotion.slide) {
+                action()
+            }
+        }
     }
 }
 
@@ -3675,6 +5567,89 @@ private enum TodoDetailMonthlyRepeatMetrics {
     static let cellCornerRadius: CGFloat = 10
     static let cardHorizontalPadding: CGFloat = 14
     static let cardVerticalPadding: CGFloat = 14
+    static let endDayBadgeDays = [29, 30, 31]
+    static let endDayBadgeHorizontalPadding: CGFloat = 9
+    static let endDayBadgeVerticalPadding: CGFloat = 5
+    static let connectorLineHeight: CGFloat = 1
+    static let connectorLineMinWidth: CGFloat = 10
+    static let connectorLineMaxWidth: CGFloat = 28
+    static let fallbackCapsuleHorizontalPadding: CGFloat = 12
+    static let fallbackCapsuleVerticalPadding: CGFloat = 8
+}
+
+private struct TodoDetailMonthlyRepeatEndDayBadge: View {
+    let day: Int
+
+    var body: some View {
+        Text("\(day)")
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(MindFlowFormSheetStyle.accent)
+            .padding(.horizontal, TodoDetailMonthlyRepeatMetrics.endDayBadgeHorizontalPadding)
+            .padding(.vertical, TodoDetailMonthlyRepeatMetrics.endDayBadgeVerticalPadding)
+            .background {
+                Capsule(style: .continuous)
+                    .fill(Color.white)
+                    .overlay {
+                        Capsule(style: .continuous)
+                            .stroke(MindFlowFormSheetStyle.accent, lineWidth: 1)
+                    }
+            }
+    }
+}
+
+private struct TodoDetailMonthlyRepeatLastDayFallbackCapsule: View {
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text("无该日的月份设置为该月最后一天")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(isSelected ? Color.white : MindFlowFormSheetStyle.accent)
+                .multilineTextAlignment(.leading)
+                .padding(.horizontal, TodoDetailMonthlyRepeatMetrics.fallbackCapsuleHorizontalPadding)
+                .padding(.vertical, TodoDetailMonthlyRepeatMetrics.fallbackCapsuleVerticalPadding)
+                .background {
+                    Capsule(style: .continuous)
+                        .fill(isSelected ? MindFlowFormSheetStyle.accent : Color.white)
+                        .overlay {
+                            if !isSelected {
+                                Capsule(style: .continuous)
+                                    .stroke(MindFlowFormSheetStyle.accent, lineWidth: 1)
+                            }
+                        }
+                }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct TodoDetailMonthlyRepeatLastDayFallbackRow: View {
+    let isSelected: Bool
+    let onToggle: () -> Void
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 8) {
+            HStack(spacing: 6) {
+                ForEach(TodoDetailMonthlyRepeatMetrics.endDayBadgeDays, id: \.self) { day in
+                    TodoDetailMonthlyRepeatEndDayBadge(day: day)
+                }
+            }
+
+            Capsule(style: .continuous)
+                .fill(MindFlowFormSheetStyle.accent.opacity(0.42))
+                .frame(
+                    width: TodoDetailMonthlyRepeatMetrics.connectorLineMaxWidth,
+                    height: TodoDetailMonthlyRepeatMetrics.connectorLineHeight
+                )
+                .frame(minWidth: TodoDetailMonthlyRepeatMetrics.connectorLineMinWidth)
+
+            TodoDetailMonthlyRepeatLastDayFallbackCapsule(
+                isSelected: isSelected,
+                action: onToggle
+            )
+        }
+    }
 }
 
 private struct TodoDetailMonthlyRepeatGridCard: View {
@@ -3700,7 +5675,8 @@ private struct TodoDetailMonthlyRepeatGridCard: View {
                     } label: {
                         TodoDetailMonthlyRepeatDayCell(
                             day: day,
-                            isSelected: selectedDays.contains(day)
+                            isSelected: selectedDays.contains(day),
+                            usesCapsuleRing: TodoDetailMonthlyRepeatMetrics.endDayBadgeDays.contains(day)
                         )
                     }
                     .buttonStyle(.plain)
@@ -3710,23 +5686,10 @@ private struct TodoDetailMonthlyRepeatGridCard: View {
             TodoDetailDashedDivider()
                 .padding(.vertical, 2)
 
-            Button(action: onToggleLastDayFallback) {
-                HStack(alignment: .top, spacing: 10) {
-                    Image(systemName: usesLastDayFallback ? "checkmark.circle.fill" : "circle")
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(
-                            usesLastDayFallback
-                                ? MindFlowFormSheetStyle.accent
-                                : Color.secondary.opacity(0.45)
-                        )
-                    Text("当前月份无29、30、31日时，改为当月最后一日")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color.secondary)
-                        .multilineTextAlignment(.leading)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-            }
-            .buttonStyle(.plain)
+            TodoDetailMonthlyRepeatLastDayFallbackRow(
+                isSelected: usesLastDayFallback,
+                onToggle: onToggleLastDayFallback
+            )
         }
         .padding(.horizontal, TodoDetailMonthlyRepeatMetrics.cardHorizontalPadding)
         .padding(.vertical, TodoDetailMonthlyRepeatMetrics.cardVerticalPadding)
@@ -3737,6 +5700,7 @@ private struct TodoDetailMonthlyRepeatGridCard: View {
 private struct TodoDetailMonthlyRepeatDayCell: View {
     let day: Int
     let isSelected: Bool
+    var usesCapsuleRing: Bool = false
 
     var body: some View {
         Text("\(day)")
@@ -3744,7 +5708,7 @@ private struct TodoDetailMonthlyRepeatDayCell: View {
             .foregroundStyle(
                 isSelected
                     ? Color.white
-                    : Color.secondary.opacity(0.62)
+                    : (usesCapsuleRing ? MindFlowFormSheetStyle.accent : Color.secondary.opacity(0.62))
             )
             .frame(maxWidth: .infinity)
             .frame(height: TodoDetailMonthlyRepeatMetrics.cellSize)
@@ -3760,6 +5724,13 @@ private struct TodoDetailMonthlyRepeatDayCell: View {
                         radius: 3,
                         y: 1
                     )
+                } else if usesCapsuleRing {
+                    Capsule(style: .continuous)
+                        .fill(Color.white)
+                        .overlay {
+                            Capsule(style: .continuous)
+                                .stroke(MindFlowFormSheetStyle.accent, lineWidth: 1)
+                        }
                 }
             }
             .contentShape(Rectangle())
@@ -3774,7 +5745,6 @@ private struct TodoDetailYearlyRepeatCalendarCard: View {
 
     var body: some View {
         MindFlowOOTDStyleCalendarCard(
-            title: "日历",
             displayedMonth: $displayedMonth,
             isDayMarked: { day in
                 let calendar = Calendar.current
@@ -3862,10 +5832,494 @@ private struct TodoDetailRepeatSection: View {
 
     var body: some View {
         TodoDetailRepeatModeCard(mode: todo?.repeatMode ?? .none) {
-            withAnimation(TodoCardMotion.slide) {
-                viewModel.cycleTodoRepeatMode(id: todoId)
+            viewModel.cycleTodoRepeatMode(id: todoId)
+        }
+    }
+}
+
+private struct TodoDetailRepeatLimitCountControl: View {
+    let count: Int?
+    let onDecrement: () -> Void
+    let onIncrement: () -> Void
+
+    var body: some View {
+        if let count {
+            HStack(spacing: 8) {
+                Button(action: onDecrement) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(MindFlowFormSheetStyle.accent.opacity(0.72))
+                        .frame(width: 28, height: 32)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+
+                Text("\(count) 次")
+                    .font(.headline.weight(.semibold))
+                    .foregroundStyle(MindFlowFormSheetStyle.accent)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                    .frame(minWidth: 36)
+
+                Button(action: onIncrement) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(MindFlowFormSheetStyle.accent.opacity(0.72))
+                        .frame(width: 28, height: 32)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        } else {
+            TodoDetailTimePlaceholderDash()
+        }
+    }
+}
+
+private struct TodoDetailRepeatLimitSegment<Value: View>: View {
+    let title: String
+    let isSelected: Bool
+    let onSelect: () -> Void
+    @ViewBuilder var value: () -> Value
+
+    var body: some View {
+        ZStack {
+            Color.clear
+                .contentShape(Rectangle())
+                .onTapGesture(perform: onSelect)
+
+            GeometryReader { geometry in
+                let verticalOffset = TodoRowCardMetrics.detailMetaChipVerticalOffset
+                Text(title)
+                    .font(.headline.weight(.semibold))
+                    .foregroundStyle(isSelected ? MindFlowFormSheetStyle.accent : Color.secondary.opacity(0.38))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .position(
+                        x: geometry.size.width / 2,
+                        y: geometry.size.height / 3 + verticalOffset
+                    )
+
+                Group {
+                    if isSelected {
+                        value()
+                    } else {
+                        TodoDetailTimePlaceholderDash()
+                    }
+                }
+                .position(
+                    x: geometry.size.width / 2,
+                    y: geometry.size.height * 2 / 3 + verticalOffset
+                )
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+private struct TodoDetailRepeatLimitCard: View {
+    @ObservedObject var viewModel: TodoViewModel
+    let todoId: Int
+    var cardHeight: CGFloat = TodoRowCardMetrics.detailMetaRowCardHeight
+    @State private var showsUntilDatePicker = false
+
+    private var todo: TodoItem? {
+        viewModel.todos.first(where: { $0.id == todoId })
+    }
+
+    var body: some View {
+        if let todo {
+            HStack(spacing: 0) {
+                TodoDetailRepeatLimitSegment(
+                    title: TodoRepeatLimitKind.deadline.displayName,
+                    isSelected: todo.repeatLimitKind == .deadline,
+                    onSelect: {
+                        withAnimation(TodoCardMotion.slide) {
+                            viewModel.setTodoRepeatLimitKind(id: todoId, kind: .deadline)
+                        }
+                        if todo.repeatUntilDate == nil {
+                            showsUntilDatePicker = true
+                        }
+                    },
+                    value: {
+                        Button {
+                            showsUntilDatePicker = true
+                        } label: {
+                            if let text = todo.repeatUntilDateOnlyDisplayText {
+                                TodoDetailTimeValueCapsule(text: text)
+                            } else {
+                                TodoDetailTimePlaceholderDash()
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                )
+
+                TodoDetailRepeatDashedDivider(verticalPadding: 10)
+
+                TodoDetailRepeatLimitSegment(
+                    title: TodoRepeatLimitKind.count.displayName,
+                    isSelected: todo.repeatLimitKind == .count,
+                    onSelect: {
+                        withAnimation(TodoCardMotion.slide) {
+                            viewModel.setTodoRepeatLimitKind(id: todoId, kind: .count)
+                        }
+                    },
+                    value: {
+                        TodoDetailRepeatLimitCountControl(
+                            count: todo.repeatMaxOccurrences,
+                            onDecrement: {
+                                viewModel.decrementTodoRepeatMaxOccurrences(id: todoId)
+                            },
+                            onIncrement: {
+                                viewModel.incrementTodoRepeatMaxOccurrences(id: todoId)
+                            }
+                        )
+                    }
+                )
+            }
+            .frame(height: cardHeight)
+            .animation(TodoCardMotion.slide, value: todo.repeatLimitKind)
+            .todoPanelCardChrome()
+            .sheet(isPresented: $showsUntilDatePicker) {
+                TodoDetailDatePickerSheet(
+                    date: todo.repeatUntilDate ?? todo.plannedDate ?? todo.createdAt,
+                    title: "截止时间"
+                ) { date in
+                    viewModel.updateTodoRepeatUntilDate(id: todoId, date: date)
+                    return nil
+                }
+            }
+        }
+    }
+}
+
+private final class TodoClippingPickerHostView: UIView {
+    let picker: UIPickerView
+
+    init(picker: UIPickerView) {
+        self.picker = picker
+        super.init(frame: .zero)
+        clipsToBounds = true
+        isExclusiveTouch = true
+        picker.isExclusiveTouch = true
+        addSubview(picker)
+        picker.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            picker.leadingAnchor.constraint(equalTo: leadingAnchor),
+            picker.trailingAnchor.constraint(equalTo: trailingAnchor),
+            picker.topAnchor.constraint(equalTo: topAnchor),
+            picker.bottomAnchor.constraint(equalTo: bottomAnchor)
+        ])
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        guard bounds.contains(point) else { return nil }
+        return super.hitTest(point, with: event)
+    }
+}
+
+private final class TodoWheelPickerView: UIPickerView {
+    private var lastPaintedSelection: Int = -1
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        TodoPickerBackgroundUtility.clearSelectionBackground(in: self)
+        let row = selectedRow(inComponent: 0)
+        guard row >= 0, row != lastPaintedSelection else { return }
+        lastPaintedSelection = row
+        reloadAllComponents()
+    }
+}
+
+private enum TodoWheelPickerLabelStyle {
+    static let accent = UIColor(red: 0.17, green: 0.34, blue: 0.28, alpha: 1)
+    static let selectedFontSize: CGFloat = 22
+    static let adjacentFontSize: CGFloat = 18
+    static let adjacentAlpha: CGFloat = 0.8
+
+    static func apply(to label: UILabel, row: Int, selectedRow: Int, text: String) {
+        label.text = text
+        label.textAlignment = .center
+        label.backgroundColor = .clear
+        if selectedRow < 0 || row == selectedRow {
+            label.alpha = 1
+            label.font = .systemFont(ofSize: selectedFontSize, weight: .semibold)
+            label.textColor = accent
+        } else if abs(row - selectedRow) == 1 {
+            label.alpha = adjacentAlpha
+            label.font = .systemFont(ofSize: adjacentFontSize, weight: .semibold)
+            label.textColor = accent
+        } else {
+            label.alpha = 0.35
+            label.font = .systemFont(ofSize: adjacentFontSize, weight: .medium)
+            label.textColor = accent
+        }
+    }
+}
+
+private final class TodoClearBackgroundPickerView: UIPickerView {
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        TodoPickerBackgroundUtility.clearSelectionBackground(in: self)
+    }
+}
+
+private enum TodoPickerBackgroundUtility {
+    static func clearSelectionBackground(in picker: UIPickerView) {
+        picker.backgroundColor = .clear
+        for (index, subview) in picker.subviews.enumerated() {
+            subview.backgroundColor = .clear
+            subview.layer.cornerRadius = 0
+            if index == 1 {
+                subview.isHidden = true
+            }
+            for nested in subview.subviews {
+                nested.backgroundColor = .clear
+                nested.layer.cornerRadius = 0
+            }
+        }
+    }
+}
+
+private struct TodoVerticalNumberWheelPicker: UIViewRepresentable {
+    @Binding var selection: Int
+    let values: [Int]
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(selection: $selection, values: values)
+    }
+
+    func makeUIView(context: Context) -> UIView {
+        let picker = TodoWheelPickerView()
+        picker.delegate = context.coordinator
+        picker.dataSource = context.coordinator
+        TodoPickerBackgroundUtility.clearSelectionBackground(in: picker)
+        return TodoClippingPickerHostView(picker: picker)
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        guard let host = uiView as? TodoClippingPickerHostView else { return }
+        let picker = host.picker
+        context.coordinator.selection = selection
+        context.coordinator.values = values
+        picker.reloadAllComponents()
+        if let index = values.firstIndex(of: selection) {
+            picker.selectRow(index, inComponent: 0, animated: false)
+        }
+        TodoPickerBackgroundUtility.clearSelectionBackground(in: picker)
+        if let wheelPicker = picker as? TodoWheelPickerView {
+            wheelPicker.setNeedsLayout()
+        }
+    }
+
+    final class Coordinator: NSObject, UIPickerViewDelegate, UIPickerViewDataSource {
+        var selection: Int
+        var values: [Int]
+        private let onSelect: (Int) -> Void
+
+        init(selection: Binding<Int>, values: [Int]) {
+            self.selection = selection.wrappedValue
+            self.values = values
+            self.onSelect = { selection.wrappedValue = $0 }
+        }
+
+        func numberOfComponents(in pickerView: UIPickerView) -> Int { 1 }
+
+        func pickerView(_ pickerView: UIPickerView, numberOfRowsInComponent component: Int) -> Int {
+            values.count
+        }
+
+        func pickerView(_ pickerView: UIPickerView, rowHeightForComponent component: Int) -> CGFloat {
+            28
+        }
+
+        func pickerView(
+            _ pickerView: UIPickerView,
+            viewForRow row: Int,
+            forComponent component: Int,
+            reusing view: UIView?
+        ) -> UIView {
+            let label = (view as? UILabel) ?? UILabel()
+            TodoWheelPickerLabelStyle.apply(
+                to: label,
+                row: row,
+                selectedRow: pickerView.selectedRow(inComponent: component),
+                text: "\(values[row])"
+            )
+            return label
+        }
+
+        func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
+            guard values.indices.contains(row) else { return }
+            selection = values[row]
+            onSelect(values[row])
+            pickerView.reloadAllComponents()
+        }
+    }
+}
+
+private struct TodoVerticalPeriodWheelPicker: UIViewRepresentable {
+    @Binding var selection: TodoCustomRepeatPeriod
+    let options: [TodoCustomRepeatPeriod]
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(selection: $selection, options: options)
+    }
+
+    func makeUIView(context: Context) -> UIView {
+        let picker = TodoWheelPickerView()
+        picker.delegate = context.coordinator
+        picker.dataSource = context.coordinator
+        TodoPickerBackgroundUtility.clearSelectionBackground(in: picker)
+        return TodoClippingPickerHostView(picker: picker)
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        guard let host = uiView as? TodoClippingPickerHostView else { return }
+        let picker = host.picker
+        context.coordinator.selection = selection
+        context.coordinator.options = options
+        picker.reloadAllComponents()
+        if let index = options.firstIndex(of: selection) {
+            picker.selectRow(index, inComponent: 0, animated: false)
+        }
+        TodoPickerBackgroundUtility.clearSelectionBackground(in: picker)
+        if let wheelPicker = picker as? TodoWheelPickerView {
+            wheelPicker.setNeedsLayout()
+        }
+    }
+
+    final class Coordinator: NSObject, UIPickerViewDelegate, UIPickerViewDataSource {
+        var selection: TodoCustomRepeatPeriod
+        var options: [TodoCustomRepeatPeriod]
+        private let onSelect: (TodoCustomRepeatPeriod) -> Void
+
+        init(selection: Binding<TodoCustomRepeatPeriod>, options: [TodoCustomRepeatPeriod]) {
+            self.selection = selection.wrappedValue
+            self.options = options
+            self.onSelect = { selection.wrappedValue = $0 }
+        }
+
+        func numberOfComponents(in pickerView: UIPickerView) -> Int { 1 }
+
+        func pickerView(_ pickerView: UIPickerView, numberOfRowsInComponent component: Int) -> Int {
+            options.count
+        }
+
+        func pickerView(_ pickerView: UIPickerView, rowHeightForComponent component: Int) -> CGFloat {
+            28
+        }
+
+        func pickerView(
+            _ pickerView: UIPickerView,
+            viewForRow row: Int,
+            forComponent component: Int,
+            reusing view: UIView?
+        ) -> UIView {
+            let label = (view as? UILabel) ?? UILabel()
+            TodoWheelPickerLabelStyle.apply(
+                to: label,
+                row: row,
+                selectedRow: pickerView.selectedRow(inComponent: component),
+                text: options[row].wheelDisplayName
+            )
+            return label
+        }
+
+        func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
+            guard options.indices.contains(row) else { return }
+            selection = options[row]
+            onSelect(options[row])
+            pickerView.reloadAllComponents()
+        }
+    }
+}
+
+private struct TodoDetailCustomRepeatCard: View {
+    @ObservedObject var viewModel: TodoViewModel
+    let todoId: Int
+
+    private enum Metrics {
+        static let wheelHeight: CGFloat = 84
+        static let intervalRange = Array(1...99)
+        static let labelFont: Font = .title2.weight(.semibold)
+        static let wheelItemFont: Font = .title2.weight(.semibold)
+        static let intervalPickerWidth: CGFloat = 52
+        static let periodPickerWidth: CGFloat = 56
+        /// 「每」/滚轮/「循环一次」之间的统一间距（可调试）
+        static let segmentSpacing: CGFloat = 8
+    }
+
+    private var todo: TodoItem? {
+        viewModel.todos.first(where: { $0.id == todoId })
+    }
+
+    var body: some View {
+        if todo != nil {
+            intervalPickerRow
+        }
+    }
+
+    private var intervalPickerRow: some View {
+        HStack(spacing: Metrics.segmentSpacing) {
+            Text("每")
+                .font(Metrics.labelFont)
+                .foregroundStyle(MindFlowFormSheetStyle.accent)
+                .padding(.leading, 14)
+
+            TodoVerticalNumberWheelPicker(
+                selection: intervalBinding,
+                values: Metrics.intervalRange
+            )
+            .frame(width: Metrics.intervalPickerWidth, height: Metrics.wheelHeight)
+            .clipped()
+            .contentShape(Rectangle())
+            .zIndex(1)
+
+            TodoVerticalPeriodWheelPicker(
+                selection: periodBinding,
+                options: TodoCustomRepeatPeriod.wheelOrder
+            )
+            .frame(width: Metrics.periodPickerWidth, height: Metrics.wheelHeight)
+            .clipped()
+            .contentShape(Rectangle())
+            .zIndex(0)
+
+            Text("循环一次")
+                .font(Metrics.labelFont)
+                .foregroundStyle(MindFlowFormSheetStyle.accent)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .padding(.trailing, 14)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: TodoRowCardMetrics.detailMetaRowCardHeight)
+        .todoPanelCardChrome()
+    }
+
+    private var intervalBinding: Binding<Int> {
+        Binding(
+            get: {
+                viewModel.todos.first(where: { $0.id == todoId })?.customRepeatInterval ?? 1
+            },
+            set: { viewModel.updateTodoCustomRepeatInterval(id: todoId, interval: $0) }
+        )
+    }
+
+    private var periodBinding: Binding<TodoCustomRepeatPeriod> {
+        Binding(
+            get: {
+                viewModel.todos.first(where: { $0.id == todoId })?.customRepeatPeriod ?? .week
+            },
+            set: { viewModel.updateTodoCustomRepeatPeriod(id: todoId, period: $0) }
+        )
     }
 }
 
@@ -3883,10 +6337,10 @@ private struct TodoDetailTimeScheduleCapsuleColumn<Content: View>: View {
 
 private struct TodoDetailTimeScheduleRow: View {
     let title: String
-    let dateText: String
-    let slotText: String
-    let onDateTap: () -> Void
-    let onSlotTap: () -> Void
+    let dateText: String?
+    let slotText: String?
+    var onDateTap: (() -> Void)? = nil
+    var onSlotTap: (() -> Void)? = nil
 
     var body: some View {
         HStack(alignment: .center, spacing: 0) {
@@ -3901,22 +6355,44 @@ private struct TodoDetailTimeScheduleRow: View {
 
             TodoDetailVerticalDashedDivider(verticalPadding: 4)
 
-            Button(action: onDateTap) {
-                TodoDetailTimeScheduleCapsuleColumn(width: TodoRowCardMetrics.detailTimeRowDateColumnWidth) {
-                    TodoDetailTimeValueCapsule(text: dateText)
+            Group {
+                if let onDateTap, let dateText {
+                    Button(action: onDateTap) {
+                        TodoDetailTimeScheduleCapsuleColumn(width: TodoRowCardMetrics.detailTimeRowDateColumnWidth) {
+                            TodoDetailTimeValueCapsule(text: dateText)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    TodoDetailTimeScheduleCapsuleColumn(width: TodoRowCardMetrics.detailTimeRowDateColumnWidth) {
+                        TodoDetailTimePlaceholderDash()
+                    }
                 }
             }
-            .buttonStyle(.plain)
 
             TodoDetailVerticalDashedDivider(verticalPadding: 4)
 
-            Button(action: onSlotTap) {
-                ZStack {
-                    TodoDetailTimeValueCapsule(text: slotText, lineLimit: 2)
+            Group {
+                if let onSlotTap, let slotText {
+                    Button(action: onSlotTap) {
+                        ZStack {
+                            TodoDetailTimeValueCapsule(text: slotText, lineLimit: 2)
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.plain)
+                } else if let slotText {
+                    ZStack {
+                        TodoDetailTimeValueCapsule(text: slotText, lineLimit: 2)
+                    }
+                    .frame(maxWidth: .infinity)
+                } else {
+                    ZStack {
+                        TodoDetailTimePlaceholderDash()
+                    }
+                    .frame(maxWidth: .infinity)
                 }
-                .frame(maxWidth: .infinity)
             }
-            .buttonStyle(.plain)
         }
         .frame(minHeight: TodoRowCardMetrics.detailTimeRowHeight)
     }
@@ -3925,14 +6401,10 @@ private struct TodoDetailTimeScheduleRow: View {
 private struct TodoDetailTimeScheduleCard: View {
     let plannedDateText: String
     let plannedSlotText: String
-    let startDateText: String
-    let startSlotText: String
-    let endDateText: String
-    let endSlotText: String
-    let onStartDateTap: () -> Void
-    let onStartSlotTap: () -> Void
-    let onEndDateTap: () -> Void
-    let onEndSlotTap: () -> Void
+    let startDateText: String?
+    let startSlotText: String?
+    let endDateText: String?
+    let endSlotText: String?
     let onPlannedDateTap: () -> Void
     let onPlannedSlotTap: () -> Void
 
@@ -3941,9 +6413,7 @@ private struct TodoDetailTimeScheduleCard: View {
             TodoDetailTimeScheduleRow(
                 title: "开始时间",
                 dateText: startDateText,
-                slotText: startSlotText,
-                onDateTap: onStartDateTap,
-                onSlotTap: onStartSlotTap
+                slotText: startSlotText
             )
 
             TodoDetailDashedDivider()
@@ -3952,9 +6422,7 @@ private struct TodoDetailTimeScheduleCard: View {
             TodoDetailTimeScheduleRow(
                 title: "结束时间",
                 dateText: endDateText,
-                slotText: endSlotText,
-                onDateTap: onEndDateTap,
-                onSlotTap: onEndSlotTap
+                slotText: endSlotText
             )
 
             TodoDetailDashedDivider()
@@ -3976,14 +6444,14 @@ private struct TodoDetailTimeScheduleCard: View {
 
 private struct TodoDetailMetaChip: View {
     let title: String
-    let value: String
+    let value: String?
     var uniformTypography: Bool = false
     var usesProportionalVerticalLayout: Bool = false
     var usesCompactTypography: Bool = false
+    var valueColor: Color = MindFlowFormSheetStyle.accent
 
     private var titleFont: Font {
         if usesProportionalVerticalLayout {
-            if usesCompactTypography { return .caption.weight(.semibold) }
             return .subheadline.weight(.semibold)
         }
         return uniformTypography ? .headline.weight(.semibold) : .caption.weight(.semibold)
@@ -4004,6 +6472,20 @@ private struct TodoDetailMetaChip: View {
         return .headline.weight(.semibold)
     }
 
+    private var titleVerticalRatio: CGFloat {
+        if usesProportionalVerticalLayout, usesCompactTypography {
+            return TodoRowCardMetrics.detailMetaChipMultilineTitleVerticalRatio
+        }
+        return 1.0 / 3.0
+    }
+
+    private var valueVerticalRatio: CGFloat {
+        if usesProportionalVerticalLayout, usesCompactTypography {
+            return TodoRowCardMetrics.detailMetaChipMultilineValueVerticalRatio
+        }
+        return 2.0 / 3.0
+    }
+
     var body: some View {
         Group {
             if usesProportionalVerticalLayout {
@@ -4017,30 +6499,43 @@ private struct TodoDetailMetaChip: View {
                             .minimumScaleFactor(0.8)
                             .position(
                                 x: geometry.size.width / 2,
-                                y: geometry.size.height / 3 + verticalOffset
+                                y: geometry.size.height * titleVerticalRatio + verticalOffset
                             )
 
-                        Text(value)
-                            .font(valueFont)
-                            .foregroundStyle(MindFlowFormSheetStyle.accent)
-                            .multilineTextAlignment(.center)
-                            .lineLimit(2)
-                            .minimumScaleFactor(0.75)
-                            .position(
-                                x: geometry.size.width / 2,
-                                y: geometry.size.height * 2 / 3 + verticalOffset
-                            )
+                        if let value {
+                            Text(value)
+                                .font(valueFont)
+                                .foregroundStyle(valueColor)
+                                .multilineTextAlignment(.center)
+                                .lineLimit(3)
+                                .minimumScaleFactor(0.7)
+                                .position(
+                                    x: geometry.size.width / 2,
+                                    y: geometry.size.height * valueVerticalRatio + verticalOffset
+                                )
+                        } else {
+                            TodoDetailTimePlaceholderDash()
+                                .position(
+                                    x: geometry.size.width / 2,
+                                    y: geometry.size.height * valueVerticalRatio + verticalOffset
+                                )
+                        }
                     }
                 }
             } else {
                 ZStack {
-                    Text(value)
-                        .font(valueFont)
-                        .foregroundStyle(MindFlowFormSheetStyle.accent)
-                        .multilineTextAlignment(.center)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.75)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                    if let value {
+                        Text(value)
+                            .font(valueFont)
+                            .foregroundStyle(valueColor)
+                            .multilineTextAlignment(.center)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.75)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                    } else {
+                        TodoDetailTimePlaceholderDash()
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                    }
 
                     VStack(spacing: 0) {
                         Text(title)
@@ -4059,6 +6554,109 @@ private struct TodoDetailMetaChip: View {
         .frame(maxWidth: .infinity)
         .frame(height: TodoRowCardMetrics.detailMetaRowCardHeight)
         .todoPanelCardChrome()
+    }
+}
+
+private struct TodoDetailCategoryChip: View {
+    @ObservedObject var viewModel: TodoViewModel
+    let todoId: Int
+    @State private var showsCategoryPicker = false
+
+    private var todo: TodoItem? {
+        viewModel.todos.first(where: { $0.id == todoId })
+    }
+
+    var body: some View {
+        TodoDetailMetaChip(
+            title: "分类",
+            value: todo?.taskCategoryLabel,
+            usesProportionalVerticalLayout: true
+        )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            showsCategoryPicker = true
+        }
+        .sheet(isPresented: $showsCategoryPicker) {
+            TodoDetailCategoryPickerSheet(
+                selectedCategoryId: todo?.taskCategoryId,
+                onSelect: { categoryId in
+                    viewModel.updateTodoCategory(id: todoId, taskCategoryId: categoryId)
+                }
+            )
+        }
+    }
+}
+
+private struct TodoDetailCategoryPickerSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let selectedCategoryId: Int?
+    let onSelect: (Int) -> Void
+
+    private let gridColumns = [
+        GridItem(.flexible(), spacing: 10),
+        GridItem(.flexible(), spacing: 10)
+    ]
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                LazyVGrid(columns: gridColumns, spacing: 10) {
+                    ForEach(TodoLifeCategoryCatalog.available) { category in
+                        categoryCard(for: category)
+                    }
+                }
+                .padding(16)
+            }
+            .scrollContentBackground(.hidden)
+            .mindFlowScrollContentBottomInset()
+            .background(todoDetailSheetBackground)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    Text("选择分类")
+                        .font(.headline.weight(.semibold))
+                        .foregroundStyle(MindFlowFormSheetStyle.accent)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("完成") { dismiss() }
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(MindFlowFormSheetStyle.accent)
+                }
+            }
+            .tint(MindFlowFormSheetStyle.accent)
+        }
+        .presentationDetents([.medium])
+        .presentationDragIndicator(.visible)
+    }
+
+    private func categoryCard(for category: TodoLifeCategoryOption) -> some View {
+        let isSelected = selectedCategoryId == category.taskCategoryId
+        return Button {
+            onSelect(category.taskCategoryId)
+            dismiss()
+        } label: {
+            Text(category.title)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(isSelected ? MindFlowFormSheetStyle.accent : Color(hex: "#2B5748").opacity(0.72))
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .minimumScaleFactor(0.85)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .padding(.horizontal, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(isSelected ? MindFlowFormSheetStyle.accentFill : Color.white)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(
+                            isSelected ? MindFlowFormSheetStyle.accent.opacity(0.38) : MindFlowFormSheetStyle.fieldBorder,
+                            lineWidth: 1
+                        )
+                )
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -4106,14 +6704,6 @@ struct TodoDetailView: View {
         todo?.description ?? ""
     }
 
-    private static let detailDateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateStyle = .medium
-        f.timeStyle = .short
-        f.locale = Locale(identifier: "zh_CN")
-        return f
-    }()
-
     var body: some View {
         if let todo {
             detailContent(for: todo)
@@ -4139,14 +6729,10 @@ struct TodoDetailView: View {
                 TodoDetailTimeScheduleCard(
                     plannedDateText: todo.plannedDateOnlyDisplayText,
                     plannedSlotText: todo.plannedTimeSlotDisplayText,
-                    startDateText: todo.createdDateOnlyDisplayText,
-                    startSlotText: todo.detailStartSlotDisplayText,
-                    endDateText: todo.endDateOnlyDisplayText,
-                    endSlotText: todo.detailEndSlotDisplayText,
-                    onStartDateTap: { presentTimeEdit(.startDate, todo: todo) },
-                    onStartSlotTap: { presentTimeEdit(.startTime, todo: todo) },
-                    onEndDateTap: { presentTimeEdit(.endDate, todo: todo) },
-                    onEndSlotTap: { presentTimeEdit(.endTime, todo: todo) },
+                    startDateText: todo.workStartedDateOnlyDisplayText,
+                    startSlotText: todo.workStartedSlotDisplayText,
+                    endDateText: todo.actualCompletedDateOnlyDisplayText,
+                    endSlotText: todo.actualCompletedSlotDisplayText,
                     onPlannedDateTap: { presentTimeEdit(.plannedDate, todo: todo) },
                     onPlannedSlotTap: { presentTimeEdit(.plannedTime, todo: todo) }
                 )
@@ -4157,12 +6743,16 @@ struct TodoDetailView: View {
                         TodoDetailMetaChip(
                             title: "计划时长",
                             value: todo.timeSlotDurationDisplayText,
-                            usesProportionalVerticalLayout: true
+                            usesProportionalVerticalLayout: true,
+                            usesCompactTypography: todo.timeSlotDurationUsesMultilineDisplay
                         )
                         TodoDetailMetaChip(
                             title: "状态",
                             value: viewModel.resolvedWorkStatus(for: todo).displayName,
-                            usesProportionalVerticalLayout: true
+                            usesProportionalVerticalLayout: true,
+                            valueColor: viewModel.resolvedWorkStatus(for: todo) == .completed
+                                ? TodoRowCardMetrics.detailCompletedStatusTextColor
+                                : MindFlowFormSheetStyle.accent
                         )
                     }
                     .frame(maxWidth: .infinity)
@@ -4181,13 +6771,10 @@ struct TodoDetailView: View {
                     }
                     .frame(maxWidth: .infinity)
                     VStack(spacing: 12) {
-                        if let category = todo.taskCategoryLabel {
-                            TodoDetailMetaChip(
-                                title: "分类",
-                                value: category,
-                                usesProportionalVerticalLayout: true
-                            )
-                        }
+                        TodoDetailCategoryChip(
+                            viewModel: viewModel,
+                            todoId: todo.id
+                        )
                         TodoDetailRepeatSection(
                             viewModel: viewModel,
                             todoId: todo.id
@@ -4198,15 +6785,12 @@ struct TodoDetailView: View {
                 .padding(.horizontal, 20)
                 .onTapGesture { dismissNoteKeyboard() }
 
-                if todo.repeatMode == .weekly {
-                    TodoDetailWeekdayPickerCard(
-                        selectedDays: todo.weeklyRepeatWeekdays,
-                        onToggle: { weekday in
-                            viewModel.toggleTodoWeekday(id: todo.id, weekday: weekday)
-                        }
+                if todo.repeatMode != .none {
+                    TodoDetailCustomRepeatCard(
+                        viewModel: viewModel,
+                        todoId: todo.id
                     )
                     .padding(.horizontal, 20)
-                    .onTapGesture { dismissNoteKeyboard() }
                     .transition(
                         .asymmetric(
                             insertion: .move(edge: .top).combined(with: .opacity),
@@ -4215,76 +6799,31 @@ struct TodoDetailView: View {
                     )
                 }
 
-                if todo.repeatMode == .monthly {
-                    TodoDetailMonthlyRepeatGridCard(
-                        selectedDays: todo.monthlyRepeatDays,
-                        usesLastDayFallback: todo.monthlyRepeatUsesLastDayFallback,
-                        onToggleDay: { day in
-                            viewModel.toggleTodoMonthlyRepeatDay(id: todo.id, day: day)
-                        },
-                        onToggleLastDayFallback: {
-                            viewModel.toggleTodoMonthlyRepeatLastDayFallback(id: todo.id)
-                        }
+                if todo.repeatMode.usesRepeatLimit {
+                    TodoDetailRepeatLimitCard(
+                        viewModel: viewModel,
+                        todoId: todo.id
                     )
                     .padding(.horizontal, 20)
-                    .onTapGesture { dismissNoteKeyboard() }
                     .transition(
                         .asymmetric(
                             insertion: .move(edge: .top).combined(with: .opacity),
                             removal: .move(edge: .top).combined(with: .opacity)
                         )
                     )
-                }
-
-                if todo.repeatMode == .yearly {
-                    TodoDetailYearlyRepeatCalendarCard(
-                        selectedDays: todo.yearlyRepeatDays,
-                        onToggle: { month, day in
-                            viewModel.toggleTodoYearlyRepeatDay(id: todo.id, month: month, day: day)
-                        }
-                    )
-                    .padding(.horizontal, 20)
-                    .onTapGesture { dismissNoteKeyboard() }
-                    .transition(
-                        .asymmetric(
-                            insertion: .move(edge: .top).combined(with: .opacity),
-                            removal: .move(edge: .top).combined(with: .opacity)
-                        )
-                    )
-                }
-
-                if todo.isCompleted {
-                    if let spent = todo.completionDurationCompactText {
-                        TodoDetailInfoCard(
-                            title: "完成用时",
-                            value: spent,
-                            icon: "alarm"
-                        )
-                        .padding(.horizontal, 20)
-                        .onTapGesture { dismissNoteKeyboard() }
-                    }
-                    if let done = todo.completedDate {
-                        TodoDetailInfoCard(
-                            title: "完成时间",
-                            value: Self.detailDateFormatter.string(from: done),
-                            icon: "checkmark.circle"
-                        )
-                        .padding(.horizontal, 20)
-                        .onTapGesture { dismissNoteKeyboard() }
-                    }
                 }
             }
+            .animation(TodoCardMotion.slide, value: todo.repeatMode)
             .padding(.top, TodoRowCardMetrics.detailPageTopInset)
-            .padding(.bottom, TodoRowCardMetrics.detailPageScrollBottomInset)
         }
         .contentMargins(.top, TodoRowCardMetrics.detailPageScrollTopInset, for: .scrollContent)
+        .mindFlowScrollContentBottomInset()
         .safeAreaInset(edge: .bottom, spacing: 0) {
             Color.clear
                 .frame(height: TodoRowCardMetrics.detailPageBottomNavBarClearance)
                 .accessibilityHidden(true)
         }
         .scrollDismissesKeyboard(.interactively)
-        .animation(TodoCardMotion.slide, value: todo.repeatMode)
         .sheet(item: $activeTimeEdit) { context in
             timeEditSheet(for: context, todo: todo)
         }

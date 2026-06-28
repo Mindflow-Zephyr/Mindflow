@@ -1,11 +1,25 @@
 import SwiftUI
+import SwiftData
+import UIKit
+
+final class MindFlowAppDelegate: NSObject, UIApplicationDelegate {
+    func application(
+        _ application: UIApplication,
+        supportedInterfaceOrientationsFor window: UIWindow?
+    ) -> UIInterfaceOrientationMask {
+        .portrait
+    }
+}
 
 @main
 struct MindFlowApp: App {
+    @UIApplicationDelegateAdaptor(MindFlowAppDelegate.self) private var appDelegate
+
     var body: some Scene {
         WindowGroup {
             MainTabView()
         }
+        .modelContainer(MindFlowModelContainerFactory.shared)
     }
 }
 
@@ -19,20 +33,20 @@ enum MainTab: Int, CaseIterable {
 
     var icon: String {
         switch self {
-        case .dashboard: return "house"
+        case .dashboard: return "square.grid.2x2"
         case .todo: return "checklist"
         case .add: return "plus"
-        case .task: return "square.grid.2x2"
+        case .task: return "leaf"
         case .profile: return "person"
         }
     }
 
     var title: String {
         switch self {
-        case .dashboard: return "生活"
+        case .dashboard: return "分类"
         case .todo: return "待办"
         case .add: return ""
-        case .task: return "领域"
+        case .task: return "生活"
         case .profile: return "我的"
         }
     }
@@ -47,7 +61,6 @@ struct MainTabView: View {
     @State private var selectedTab: MainTab = .todo
     @State private var showingAddTodo = false
     @State private var showingCreateCategory = false
-    @State private var showingAddTask = false
 
     var body: some View {
         ZStack {
@@ -65,7 +78,7 @@ struct MainTabView: View {
                 case .todo, .add:
                     NavigationView { TodoView(showingAddTodo: $showingAddTodo) }
                 case .task:
-                    NavigationView { TaskView(showingAddTask: $showingAddTask) }
+                    NavigationView { LifeView() }
                 case .profile:
                     NavigationView { ProfileSettingsView() }
                 }
@@ -100,9 +113,7 @@ struct MainTabView: View {
             withAnimation(.spring(response: 0.42, dampingFraction: 0.88)) {
                 showingCreateCategory = true
             }
-        case .task:
-            showingAddTask = true
-        case .profile:
+        case .task, .profile:
             break
         }
     }
@@ -140,9 +151,9 @@ struct CustomBottomNavBar: View {
             GlassEffectContainer {
                 HStack(spacing: itemSpacing) {
                     sideTabButton(.todo)
-                    sideTabButton(.dashboard)
-                    centerAddButton()
                     sideTabButton(.task)
+                    centerAddButton()
+                    sideTabButton(.dashboard)
                     sideTabButton(.profile)
                 }
                 .padding(.horizontal, barInset)

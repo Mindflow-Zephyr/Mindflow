@@ -114,3 +114,43 @@ struct APIError: Codable, Error {
     let field: String?
 }
 
+// MARK: - Legacy Task (持久层保留，UI 已迁移至生活页卡片)
+
+struct TaskItem: Identifiable, Codable {
+    let id: Int
+    var title: String
+    var description: String?
+    var isCompleted: Bool
+    var parentId: Int?
+    var subtasks: [TaskItem]
+
+    init(
+        id: Int,
+        title: String,
+        description: String? = nil,
+        isCompleted: Bool = false,
+        parentId: Int? = nil,
+        subtasks: [TaskItem] = []
+    ) {
+        self.id = id
+        self.title = title
+        self.description = description
+        self.isCompleted = isCompleted
+        self.parentId = parentId
+        self.subtasks = subtasks
+    }
+}
+
+enum TaskSampleData {
+    static func makeSampleTasks() -> [TaskItem] {
+        [
+            TaskItem(id: 1, title: "完成项目开发", description: "主要项目任务", isCompleted: false, parentId: nil),
+            TaskItem(id: 2, title: "设计阶段", description: "完成UI设计", isCompleted: true, parentId: 1),
+            TaskItem(id: 3, title: "设计首页", isCompleted: true, parentId: 2),
+            TaskItem(id: 4, title: "设计详情页", isCompleted: false, parentId: 2),
+            TaskItem(id: 5, title: "开发阶段", description: "实现功能", isCompleted: false, parentId: 1),
+            TaskItem(id: 6, title: "准备演示", description: nil, isCompleted: false, parentId: nil)
+        ]
+    }
+}
+

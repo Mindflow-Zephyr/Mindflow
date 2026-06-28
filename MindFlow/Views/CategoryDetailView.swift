@@ -108,8 +108,8 @@ struct CategoryDetailView: View {
                             .padding(.horizontal)
                         }
                     }
-                    .padding(.bottom, 100)
                 }
+                .mindFlowScrollContentBottomInset()
             }
         }
         .navigationTitle("")
