@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// 全 App 滚动页面底部可滚动留白（可调试）
+/// 全 App 滚动页面底部可滚动留白（与底部自定义导航栏上沿对齐：72 + 46）
 enum MindFlowScrollMetrics {
-    static let bottomContentInset: CGFloat = 100
+    static let bottomContentInset: CGFloat = 118
 }
 
 /// 分类页列表行卡片（详情条目、今日穿搭等）统一外观。

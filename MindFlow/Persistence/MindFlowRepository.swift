@@ -16,7 +16,10 @@ enum MindFlowModelContainerFactory {
         SDOOTDHistoryRecord.self,
         SDOutfitPageSettingsRecord.self,
         SDTodoRecord.self,
-        SDTaskRecord.self
+        SDTaskRecord.self,
+        SDGoalRecord.self,
+        SDGoalBreakdownSectionRecord.self,
+        SDGoalBreakdownTaskRecord.self
     ])
 
     static let shared: ModelContainer = {
@@ -57,7 +60,7 @@ final class MindFlowRepository {
     static let shared = MindFlowRepository()
 
     /// 数据结构版本；递增后会触发全量清除并按最新示例数据重新初始化。
-    private static let currentDataSchemaVersion = 2
+    private static let currentDataSchemaVersion = 5
     private static let dataSchemaVersionKey = "mindflow.dataSchemaVersion"
 
     let container: ModelContainer
@@ -107,7 +110,10 @@ final class MindFlowRepository {
             menuItems: dashboard.menuItems,
             outfitPlansByCategoryId: dashboard.outfitPlansByCategoryId,
             ootdHistoryRecords: dashboard.ootdHistoryRecords,
-            outfitPageCardSettings: dashboard.outfitPageCardSettings
+            outfitPageCardSettings: dashboard.outfitPageCardSettings,
+            goals: dashboard.goals,
+            goalBreakdownSections: dashboard.goalBreakdownSections,
+            goalBreakdownTasks: dashboard.goalBreakdownTasks
         )
 
         saveTodos(TodoViewModel.makeSampleTodos())
@@ -127,6 +133,9 @@ final class MindFlowRepository {
         deleteAll(SDOutfitPageSettingsRecord.self)
         deleteAll(SDTodoRecord.self)
         deleteAll(SDTaskRecord.self)
+        deleteAll(SDGoalRecord.self)
+        deleteAll(SDGoalBreakdownSectionRecord.self)
+        deleteAll(SDGoalBreakdownTaskRecord.self)
 
         let otherMetadata = (try? context.fetch(FetchDescriptor<SDAppMetadataRecord>()))?
             .filter { $0.id != metadata.id } ?? []
@@ -180,6 +189,9 @@ final class MindFlowRepository {
         var outfitPlansByCategoryId: [UUID: OutfitPlan]
         var ootdHistoryRecords: [OOTDHistoryRecord]
         var outfitPageCardSettings: OutfitPageCardSettings
+        var goals: [GoalItem]
+        var goalBreakdownSections: [GoalBreakdownSection]
+        var goalBreakdownTasks: [GoalBreakdownTask]
     }
 
     func loadDashboard() -> DashboardState {
@@ -202,6 +214,12 @@ final class MindFlowRepository {
         )))?.first
         let outfitPageCardSettings = settingsRecord.map(MindFlowDataMapper.outfitPageSettings(from:))
             ?? OutfitPageCardSettings()
+        let goals = (try? context.fetch(FetchDescriptor<SDGoalRecord>()))?
+            .map(MindFlowDataMapper.goal(from:)) ?? []
+        let goalBreakdownSections = (try? context.fetch(FetchDescriptor<SDGoalBreakdownSectionRecord>()))?
+            .map(MindFlowDataMapper.goalBreakdownSection(from:)) ?? []
+        let goalBreakdownTasks = (try? context.fetch(FetchDescriptor<SDGoalBreakdownTaskRecord>()))?
+            .map(MindFlowDataMapper.goalBreakdownTask(from:)) ?? []
 
         return DashboardState(
             categories: categories,
@@ -210,7 +228,10 @@ final class MindFlowRepository {
             menuItems: menuItems,
             outfitPlansByCategoryId: outfitPlansByCategoryId,
             ootdHistoryRecords: ootdHistoryRecords,
-            outfitPageCardSettings: outfitPageCardSettings
+            outfitPageCardSettings: outfitPageCardSettings,
+            goals: goals,
+            goalBreakdownSections: goalBreakdownSections,
+            goalBreakdownTasks: goalBreakdownTasks
         )
     }
 
@@ -221,7 +242,10 @@ final class MindFlowRepository {
         menuItems: [MenuItem],
         outfitPlansByCategoryId: [UUID: OutfitPlan],
         ootdHistoryRecords: [OOTDHistoryRecord],
-        outfitPageCardSettings: OutfitPageCardSettings
+        outfitPageCardSettings: OutfitPageCardSettings,
+        goals: [GoalItem],
+        goalBreakdownSections: [GoalBreakdownSection],
+        goalBreakdownTasks: [GoalBreakdownTask]
     ) {
         syncUUIDRecords(
             existing: (try? context.fetch(FetchDescriptor<SDLifeCategoryRecord>())) ?? [],
@@ -340,6 +364,55 @@ final class MindFlowRepository {
             context.insert(MindFlowDataMapper.outfitPageSettingsRecord(from: outfitPageCardSettings))
         }
 
+        syncUUIDRecords(
+            existing: (try? context.fetch(FetchDescriptor<SDGoalRecord>())) ?? [],
+            desiredIDs: Set(goals.map(\.id)),
+            recordID: \.id,
+            models: goals,
+            modelID: \.id,
+            insert: MindFlowDataMapper.goalRecord(from:),
+            update: { record, model in
+                record.categoryId = model.categoryId
+                record.title = model.title
+                record.note = model.note
+                record.statusRaw = model.status.rawValue
+                record.progress = model.progress
+                record.targetDate = model.targetDate
+                record.createdAt = model.createdAt
+                record.stageTitle = model.stageTitle
+            }
+        )
+
+        syncUUIDRecords(
+            existing: (try? context.fetch(FetchDescriptor<SDGoalBreakdownSectionRecord>())) ?? [],
+            desiredIDs: Set(goalBreakdownSections.map(\.id)),
+            recordID: \.id,
+            models: goalBreakdownSections,
+            modelID: \.id,
+            insert: MindFlowDataMapper.goalBreakdownSectionRecord(from:),
+            update: { record, model in
+                record.goalId = model.goalId
+                record.title = model.title
+                record.icon = model.icon
+                record.sortOrder = model.sortOrder
+            }
+        )
+
+        syncUUIDRecords(
+            existing: (try? context.fetch(FetchDescriptor<SDGoalBreakdownTaskRecord>())) ?? [],
+            desiredIDs: Set(goalBreakdownTasks.map(\.id)),
+            recordID: \.id,
+            models: goalBreakdownTasks,
+            modelID: \.id,
+            insert: MindFlowDataMapper.goalBreakdownTaskRecord(from:),
+            update: { record, model in
+                record.sectionId = model.sectionId
+                record.title = model.title
+                record.statusRaw = model.status.rawValue
+                record.sortOrder = model.sortOrder
+            }
+        )
+
         saveContext()
     }
 
@@ -394,6 +467,24 @@ final class MindFlowRepository {
             }
         )
         saveContext()
+    }
+
+    /// 追加自测待办（默认 100 条），返回实际新增数量
+    @discardableResult
+    func appendTestTodos(count: Int = 100) -> Int {
+        guard count > 0 else { return 0 }
+        let existing = loadTodos()
+        let startId = (existing.map(\.id).max() ?? 0) + 1
+        let newTodos = TodoTestDataFactory.makeTestTodos(count: count, startingId: startId)
+        saveTodos(existing + newTodos)
+        NotificationCenter.default.post(name: .mindFlowDataDidReset, object: nil)
+        return newTodos.count
+    }
+
+    /// 删除全部待办（不影响生活、领域等其他数据）
+    func clearAllTodos() {
+        saveTodos([])
+        NotificationCenter.default.post(name: .mindFlowDataDidReset, object: nil)
     }
 
     // MARK: - Task

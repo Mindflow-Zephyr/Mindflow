@@ -51,6 +51,75 @@ final class SDLifeDetailItemRecord {
 }
 
 @Model
+final class SDGoalRecord {
+    @Attribute(.unique) var id: UUID
+    var categoryId: UUID
+    var title: String
+    var note: String?
+    var statusRaw: String
+    var progress: Int
+    var targetDate: Date?
+    var createdAt: Date
+    var stageTitle: String?
+
+    init(
+        id: UUID,
+        categoryId: UUID,
+        title: String,
+        note: String?,
+        statusRaw: String,
+        progress: Int,
+        targetDate: Date?,
+        createdAt: Date,
+        stageTitle: String? = nil
+    ) {
+        self.id = id
+        self.categoryId = categoryId
+        self.title = title
+        self.note = note
+        self.statusRaw = statusRaw
+        self.progress = progress
+        self.targetDate = targetDate
+        self.createdAt = createdAt
+        self.stageTitle = stageTitle
+    }
+}
+
+@Model
+final class SDGoalBreakdownSectionRecord {
+    @Attribute(.unique) var id: UUID
+    var goalId: UUID
+    var title: String
+    var icon: String
+    var sortOrder: Int
+
+    init(id: UUID, goalId: UUID, title: String, icon: String, sortOrder: Int) {
+        self.id = id
+        self.goalId = goalId
+        self.title = title
+        self.icon = icon
+        self.sortOrder = sortOrder
+    }
+}
+
+@Model
+final class SDGoalBreakdownTaskRecord {
+    @Attribute(.unique) var id: UUID
+    var sectionId: UUID
+    var title: String
+    var statusRaw: String
+    var sortOrder: Int
+
+    init(id: UUID, sectionId: UUID, title: String, statusRaw: String, sortOrder: Int) {
+        self.id = id
+        self.sectionId = sectionId
+        self.title = title
+        self.statusRaw = statusRaw
+        self.sortOrder = sortOrder
+    }
+}
+
+@Model
 final class SDWardrobeItemRecord {
     @Attribute(.unique) var id: UUID
     var categoryId: UUID

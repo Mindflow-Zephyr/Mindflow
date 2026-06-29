@@ -34,6 +34,74 @@ enum MindFlowDataMapper {
         SDLifeDetailItemRecord(id: item.id, categoryId: item.categoryId, title: item.title, note: item.note)
     }
 
+    static func goal(from record: SDGoalRecord) -> GoalItem {
+        GoalItem(
+            id: record.id,
+            categoryId: record.categoryId,
+            title: record.title,
+            note: record.note,
+            status: GoalStatus(rawValue: record.statusRaw) ?? .inProgress,
+            progress: record.progress,
+            targetDate: record.targetDate,
+            createdAt: record.createdAt,
+            stageTitle: record.stageTitle
+        )
+    }
+
+    static func goalRecord(from item: GoalItem) -> SDGoalRecord {
+        SDGoalRecord(
+            id: item.id,
+            categoryId: item.categoryId,
+            title: item.title,
+            note: item.note,
+            statusRaw: item.status.rawValue,
+            progress: item.progress,
+            targetDate: item.targetDate,
+            createdAt: item.createdAt,
+            stageTitle: item.stageTitle
+        )
+    }
+
+    static func goalBreakdownSection(from record: SDGoalBreakdownSectionRecord) -> GoalBreakdownSection {
+        GoalBreakdownSection(
+            id: record.id,
+            goalId: record.goalId,
+            title: record.title,
+            icon: record.icon,
+            sortOrder: record.sortOrder
+        )
+    }
+
+    static func goalBreakdownSectionRecord(from section: GoalBreakdownSection) -> SDGoalBreakdownSectionRecord {
+        SDGoalBreakdownSectionRecord(
+            id: section.id,
+            goalId: section.goalId,
+            title: section.title,
+            icon: section.icon,
+            sortOrder: section.sortOrder
+        )
+    }
+
+    static func goalBreakdownTask(from record: SDGoalBreakdownTaskRecord) -> GoalBreakdownTask {
+        GoalBreakdownTask(
+            id: record.id,
+            sectionId: record.sectionId,
+            title: record.title,
+            status: GoalBreakdownTaskStatus(rawValue: record.statusRaw) ?? .notStarted,
+            sortOrder: record.sortOrder
+        )
+    }
+
+    static func goalBreakdownTaskRecord(from task: GoalBreakdownTask) -> SDGoalBreakdownTaskRecord {
+        SDGoalBreakdownTaskRecord(
+            id: task.id,
+            sectionId: task.sectionId,
+            title: task.title,
+            statusRaw: task.status.rawValue,
+            sortOrder: task.sortOrder
+        )
+    }
+
     static func wardrobeItem(from record: SDWardrobeItemRecord) -> WardrobeItem {
         WardrobeItem(
             id: record.id,

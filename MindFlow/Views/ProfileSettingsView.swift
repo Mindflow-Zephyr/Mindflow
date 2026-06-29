@@ -2,6 +2,9 @@ import SwiftUI
 
 struct ProfileSettingsView: View {
     @State private var showingResetConfirm = false
+    @State private var showingSeedTodosConfirm = false
+    @State private var showingClearTodosConfirm = false
+    @State private var seedTodosResultMessage: String?
 
     var body: some View {
         ZStack {
@@ -28,6 +31,21 @@ struct ProfileSettingsView: View {
                         settingsRow(icon: "person.crop.circle", title: "个人资料")
                         settingsRow(icon: "bell", title: "通知")
                         settingsRow(icon: "lock", title: "隐私与安全")
+                    }
+
+                    settingsGroup(title: "开发调试") {
+                        Button {
+                            showingSeedTodosConfirm = true
+                        } label: {
+                            settingsRow(icon: "checklist.badge.plus", title: "生成 100 条测试待办", showsChevron: false)
+                        }
+                        .buttonStyle(.plain)
+                        Button {
+                            showingClearTodosConfirm = true
+                        } label: {
+                            settingsRow(icon: "checklist.badge.minus", title: "清除所有待办", showsChevron: false, isDestructive: true)
+                        }
+                        .buttonStyle(.plain)
                     }
 
                     settingsGroup(title: "应用") {
@@ -59,6 +77,32 @@ struct ProfileSettingsView: View {
         } message: {
             Text("将删除所有分类、待办、衣物等本地数据，并恢复为初始示例数据。此操作不可撤销。")
         }
+        .alert("生成测试待办？", isPresented: $showingSeedTodosConfirm) {
+            Button("取消", role: .cancel) {}
+            Button("生成") {
+                let added = MindFlowRepository.shared.appendTestTodos(count: 100)
+                seedTodosResultMessage = "已追加 \(added) 条测试待办，请切换到待办页查看。"
+            }
+        } message: {
+            Text("将在现有待办基础上追加 100 条自测数据（含不同分类、优先级、日期与部分循环待办），不会删除已有数据。")
+        }
+        .alert("清除所有待办？", isPresented: $showingClearTodosConfirm) {
+            Button("取消", role: .cancel) {}
+            Button("清除", role: .destructive) {
+                MindFlowRepository.shared.clearAllTodos()
+                seedTodosResultMessage = "已清除全部待办。"
+            }
+        } message: {
+            Text("将删除所有待办事项，生活、领域等其他数据不受影响。此操作不可撤销。")
+        }
+        .alert("完成", isPresented: Binding(
+            get: { seedTodosResultMessage != nil },
+            set: { if !$0 { seedTodosResultMessage = nil } }
+        )) {
+            Button("好的", role: .cancel) {}
+        } message: {
+            Text(seedTodosResultMessage ?? "")
+        }
     }
 
     @ViewBuilder
@@ -81,16 +125,18 @@ struct ProfileSettingsView: View {
         icon: String,
         title: String,
         detail: String? = nil,
-        showsChevron: Bool = true
+        showsChevron: Bool = true,
+        isDestructive: Bool = false
     ) -> some View {
-        HStack(spacing: 12) {
+        let destructive = isDestructive || title == "清除所有数据"
+        return HStack(spacing: 12) {
             Image(systemName: icon)
                 .font(.body)
-                .foregroundStyle(title == "清除所有数据" ? .red : Color(hex: "#2B5748"))
+                .foregroundStyle(destructive ? .red : Color(hex: "#2B5748"))
                 .frame(width: 28)
             Text(title)
                 .font(.body)
-                .foregroundStyle(title == "清除所有数据" ? .red : Color(hex: "#2B5748"))
+                .foregroundStyle(destructive ? .red : Color(hex: "#2B5748"))
             Spacer()
             if let detail {
                 Text(detail)

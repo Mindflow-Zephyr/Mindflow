@@ -615,37 +615,6 @@ enum OutfitResearchTimeStore {
     }
 }
 
-enum OutfitTodoCategory {
-    static let outfitTaskCategoryId = 8
-}
-
-/// 待办可选分类：与分类页已接入的叶子分类对齐（新增分类待办能力时在此追加）
-struct TodoLifeCategoryOption: Identifiable, Hashable {
-    let taskCategoryId: Int
-    let title: String
-    let icon: String
-
-    var id: Int { taskCategoryId }
-}
-
-enum TodoLifeCategoryCatalog {
-    static let fitnessCategoryId = 1
-    static let workCategoryId = 2
-    static let lifeCategoryId = 3
-
-    static let available: [TodoLifeCategoryOption] = [
-        TodoLifeCategoryOption(taskCategoryId: fitnessCategoryId, title: "健身", icon: "figure.run"),
-        TodoLifeCategoryOption(taskCategoryId: workCategoryId, title: "工作", icon: "briefcase"),
-        TodoLifeCategoryOption(taskCategoryId: lifeCategoryId, title: "生活", icon: "leaf"),
-        TodoLifeCategoryOption(taskCategoryId: OutfitTodoCategory.outfitTaskCategoryId, title: "穿搭", icon: "tshirt")
-    ]
-
-    static func option(for taskCategoryId: Int) -> TodoLifeCategoryOption? {
-        available.first { $0.taskCategoryId == taskCategoryId }
-    }
-
-    static var outfitCategoryId: Int { OutfitTodoCategory.outfitTaskCategoryId }
-}
 
 enum OutfitSlot: String, CaseIterable, Identifiable {
     case top = "上装"
@@ -945,6 +914,11 @@ struct DashboardView: View {
                 viewModel: viewModel,
                 parentCategory: category,
                 navigationPath: $navigationPath
+            )
+        } else if LifeCategoryCatalog.isGoalsCategory(category) {
+            GoalCategoryScreen(
+                viewModel: viewModel,
+                category: category
             )
         } else {
             LifeCategoryDetailView(
@@ -3830,6 +3804,9 @@ class DashboardViewModel: ObservableObject {
     @Published private(set) var menuItems: [MenuItem] = []
     @Published private(set) var outfitPlansByCategoryId: [UUID: OutfitPlan] = [:]
     @Published private(set) var ootdHistoryRecords: [OOTDHistoryRecord] = []
+    @Published private(set) var goals: [GoalItem] = []
+    @Published private(set) var goalBreakdownSections: [GoalBreakdownSection] = []
+    @Published private(set) var goalBreakdownTasks: [GoalBreakdownTask] = []
     @Published var outfitPageCardSettings = OutfitPageCardSettings()
     @Published private(set) var outfitResearchTimeSeconds: TimeInterval = OutfitResearchTimeStore.totalSeconds
     @Published private(set) var addSheetMode: LifeAddSheetMode = .category(parentId: nil)
@@ -3885,6 +3862,9 @@ class DashboardViewModel: ObservableObject {
         outfitPlansByCategoryId = state.outfitPlansByCategoryId
         ootdHistoryRecords = state.ootdHistoryRecords
         outfitPageCardSettings = state.outfitPageCardSettings
+        goals = state.goals
+        goalBreakdownSections = state.goalBreakdownSections
+        goalBreakdownTasks = state.goalBreakdownTasks
         outfitResearchTimeSeconds = OutfitResearchTimeStore.totalSeconds
     }
 
@@ -3896,7 +3876,10 @@ class DashboardViewModel: ObservableObject {
             menuItems: menuItems,
             outfitPlansByCategoryId: outfitPlansByCategoryId,
             ootdHistoryRecords: ootdHistoryRecords,
-            outfitPageCardSettings: outfitPageCardSettings
+            outfitPageCardSettings: outfitPageCardSettings,
+            goals: goals,
+            goalBreakdownSections: goalBreakdownSections,
+            goalBreakdownTasks: goalBreakdownTasks
         )
     }
 
@@ -4654,6 +4637,11 @@ class DashboardViewModel: ObservableObject {
             removeCategoryTree(id: childId)
         }
         detailItems.removeAll { $0.categoryId == id }
+        let removedGoalIds = goals.filter { $0.categoryId == id }.map(\.id)
+        for goalId in removedGoalIds {
+            removeGoalBreakdown(forGoalId: goalId)
+        }
+        goals.removeAll { $0.categoryId == id }
         categories.removeAll { $0.id == id }
         persistDashboard()
     }
@@ -4672,11 +4660,92 @@ class DashboardViewModel: ObservableObject {
         persistDashboard()
     }
 
+    // MARK: - Goals
+
+    func goals(in categoryId: UUID) -> [GoalItem] {
+        goals
+            .filter { $0.categoryId == categoryId }
+            .sorted { $0.createdAt > $1.createdAt }
+    }
+
+    func goalStats(for categoryId: UUID) -> GoalOverviewStats {
+        let items = goals(in: categoryId)
+        return GoalOverviewStats(
+            total: items.count,
+            inProgress: items.filter { $0.status == .inProgress }.count,
+            completed: items.filter { $0.status == .completed }.count,
+            paused: items.filter { $0.status == .paused }.count
+        )
+    }
+
+    func goal(withId id: UUID) -> GoalItem? {
+        goals.first { $0.id == id }
+    }
+
+    func addGoal(categoryId: UUID, title: String, note: String?) {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        goals.append(GoalItem(categoryId: categoryId, title: trimmed, note: note))
+        persistDashboard()
+    }
+
+    func updateGoalStatus(id: UUID, status: GoalStatus) {
+        guard let index = goals.firstIndex(where: { $0.id == id }) else { return }
+        var item = goals[index]
+        item.status = status
+        if status == .completed {
+            item.progress = 100
+        }
+        goals[index] = item
+        persistDashboard()
+    }
+
+    func updateGoalProgress(id: UUID, progress: Int) {
+        guard let index = goals.firstIndex(where: { $0.id == id }) else { return }
+        var item = goals[index]
+        item.progress = min(100, max(0, progress))
+        goals[index] = item
+        persistDashboard()
+    }
+
+    func deleteGoal(id: UUID) {
+        removeGoalBreakdown(forGoalId: id)
+        goals.removeAll { $0.id == id }
+        persistDashboard()
+    }
+
+    func breakdownSections(for goalId: UUID) -> [GoalBreakdownSection] {
+        goalBreakdownSections
+            .filter { $0.goalId == goalId }
+            .sorted { $0.sortOrder < $1.sortOrder }
+    }
+
+    func breakdownTasks(for sectionId: UUID) -> [GoalBreakdownTask] {
+        goalBreakdownTasks
+            .filter { $0.sectionId == sectionId }
+            .sorted { $0.sortOrder < $1.sortOrder }
+    }
+
+    func updateBreakdownTaskStatus(id: UUID, status: GoalBreakdownTaskStatus) {
+        guard let index = goalBreakdownTasks.firstIndex(where: { $0.id == id }) else { return }
+        var task = goalBreakdownTasks[index]
+        task.status = status
+        goalBreakdownTasks[index] = task
+        persistDashboard()
+    }
+
+    private func removeGoalBreakdown(forGoalId goalId: UUID) {
+        let sectionIds = Set(goalBreakdownSections.filter { $0.goalId == goalId }.map(\.id))
+        goalBreakdownTasks.removeAll { sectionIds.contains($0.sectionId) }
+        goalBreakdownSections.removeAll { $0.goalId == goalId }
+    }
+
     static func makeSampleDashboardState() -> MindFlowRepository.DashboardState {
         loadSampleDataIntoState()
     }
 
     private static func loadSampleDataIntoState() -> MindFlowRepository.DashboardState {
+        let goalsCategory = LifeCategory(title: LifeCategoryCatalog.goalsTitle, icon: "target", accentHex: "#2B5748")
         let clothing = LifeCategory(title: "穿搭", icon: "tshirt")
         let food = LifeCategory(title: "饮食", icon: "fork.knife")
         let homeCook = LifeCategory(title: "烹饪", icon: "frying.pan", parentId: food.id)
@@ -4688,7 +4757,7 @@ class DashboardViewModel: ObservableObject {
         let travel = LifeCategory(title: "旅行", icon: "car")
 
         let categories = [
-            clothing, food, homeCook, diningOut, gaming, onlineGame, singlePlayerGame, housing, travel
+            goalsCategory, clothing, food, homeCook, diningOut, gaming, onlineGame, singlePlayerGame, housing, travel
         ]
 
         let calendar = Calendar.current
@@ -4917,6 +4986,11 @@ class DashboardViewModel: ObservableObject {
             LifeDetailItem(categoryId: travel.id, title: "周末骑行计划", note: "滨河路线 15km")
         ]
 
+        let sampleGoals = GoalSampleData.makeSampleGoals(for: goalsCategory.id)
+        let breakdownGoalId = sampleGoals.first { $0.title == "完成 Q1 项目交付" }?.id
+        let breakdownSample = breakdownGoalId.map(GoalBreakdownSampleData.makeSampleBreakdown(for:))
+            ?? ([], [])
+
         return MindFlowRepository.DashboardState(
             categories: categories,
             detailItems: detailItems,
@@ -4924,7 +4998,10 @@ class DashboardViewModel: ObservableObject {
             menuItems: Self.sampleMenuItems(for: homeCook.id),
             outfitPlansByCategoryId: [:],
             ootdHistoryRecords: ootdHistoryRecords,
-            outfitPageCardSettings: OutfitPageCardSettings()
+            outfitPageCardSettings: OutfitPageCardSettings(),
+            goals: sampleGoals,
+            goalBreakdownSections: breakdownSample.0,
+            goalBreakdownTasks: breakdownSample.1
         )
     }
 
